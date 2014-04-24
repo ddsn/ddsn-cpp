@@ -7,27 +7,27 @@
 
 using namespace ddsn;
 
-Code::Code() {
+code::code() {
 	code_ = new char[1];
 	layers_ = 0;
 	memset(code_, 0, 1);
 }
 
-Code::Code(int layers) {
+code::code(int layers) {
 	int size = (layers - 1) / 8 + 1;
 	code_ = new char[size];
 	layers_ = layers;
 	memset(code_, 0, size);
 }
 
-Code::Code(int layers, const char *code) {
+code::code(int layers, const char *code) {
 	int size = (layers - 1) / 8 + 1;
 	code_ = new char[size];
 	layers_ = layers;
 	memcpy(code_, code, size);
 }
 
-Code::Code(std::string code) {
+code::code(std::string code) {
 	int layers;
 	const int code_length = code.length();
 
@@ -67,28 +67,28 @@ Code::Code(std::string code) {
 	}
 }
 
-Code::Code(const Code &code) {
+code::code(const code &code) {
 	int size = (code.layers_ - 1) / 8 + 1;
 	code_ = new char[size];
 	layers_ = code.layers_;
 	memcpy(code_, code.code_, size);
 }
 
-Code::~Code() {
+code::~code() {
 	delete[] code_;
 }
 
-int Code::get_layer_code(int layer) const {
+int code::layer_code(int layer) const {
 	if (layer > layers_) return -1;
 	return (code_[layer / 8] >> (layer % 8)) & 1;
 }
 
-int Code::get_ext_layer_code(int layer) const {
+int code::ext_layer_code(int layer) const {
 	if (layer > layers_) return 0;
 	return (code_[layer / 8] >> (layer % 8)) & 1;
 }
 
-void Code::set_layer_code(int layer, int code) {
+void code::set_layer_code(int layer, int code) {
 	assert(layer < layers_);
 	if (code == 0) {
 		code_[layer / 8] &= 0xFF ^ (1 << (layer % 8));
@@ -98,7 +98,7 @@ void Code::set_layer_code(int layer, int code) {
 	}
 }
 
-void Code::resize_layers(int layers) {
+void code::resize_layers(int layers) {
 	if (layers > layers_) {
 		int oldSize = (layers_ - 1) / 8 + 1;
 		int newSize = (layers - 1) / 8 + 1;
@@ -115,29 +115,29 @@ void Code::resize_layers(int layers) {
 	}
 }
 
-int Code::get_layers() const {
+int code::layers() const {
 	return layers_;
 }
 
-bool Code::contains(const Code &code) const {
+bool code::contains(const code &code) const {
 	for (int i = 0; i < layers_; i++) {
-		if (code.get_ext_layer_code(i) != get_layer_code(i)) {
+		if (code.ext_layer_code(i) != layer_code(i)) {
 			return false;
 		}
 	}
 	return true;
 }
 
-int Code::get_differing_layer(const Code &code) const {
+int code::differing_layer(const code &code) const {
 	for (int i = 0; i < layers_; i++) {
-		if (code.get_ext_layer_code(i) != get_layer_code(i)) {
+		if (code.ext_layer_code(i) != layer_code(i)) {
 			return i;
 		}
 	}
 	return -1;
 }
 
-Code &Code::operator=(const Code &code) {
+code &code::operator=(const code &code) {
 	int size = (code.layers_ - 1) / 8 + 1;
 	delete[] code_;
 	code_ = new char[size];
@@ -146,11 +146,11 @@ Code &Code::operator=(const Code &code) {
 	return *this;
 }
 
-std::string Code::get_string() const {
+std::string code::string() const {
 	std::string string;
 	int i = 0;
 	for (; i + 3 < layers_; i += 4) {
-		int digit = get_layer_code(i) << 3 | get_layer_code(i + 1) << 2 | get_layer_code(i + 2) << 1 | get_layer_code(i + 3);
+		int digit = layer_code(i) << 3 | layer_code(i + 1) << 2 | layer_code(i + 2) << 1 | layer_code(i + 3);
 		if (digit <= 9) {
 			string += (char)('0' + digit);
 		} else {
@@ -160,15 +160,15 @@ std::string Code::get_string() const {
 	if (i < layers_) {
 		string += ':';
 		for (; i < layers_; i++) {
-			string += get_layer_code(i) == 0 ? '0' : '1';
+			string += layer_code(i) == 0 ? '0' : '1';
 		}
 	}
 	return string;
 }
 
 namespace ddsn {
-	std::ostream& operator<<(std::ostream& stream, const Code& code) {
-		stream << code.get_string();
+	std::ostream& operator<<(std::ostream& stream, const code& code) {
+		stream << code.string();
 		return stream;
 	}
 }

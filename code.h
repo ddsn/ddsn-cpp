@@ -1,41 +1,42 @@
-#ifndef DDSN_CODE_H
-#define DDSN_CODE_H
+#ifndef DDSN_code_H
+#define DDSN_code_H
 
 #include <string>
 
 namespace ddsn {
-	class Code {
+	class code {
 	public:
-		Code();
-		Code(int layers);
-		Code(int layers, const char *code);
-		Code(std::string code);
-		Code(const Code &code);
+		code();
+		code(int layers);
+		code(int layers, const char *code);
+		code(std::string code);
+		code(const code &code);
 
-		~Code();
+		~code();
 
-		int get_layer_code(int layer) const;
-		int get_ext_layer_code(int layer) const;
+		int layer_code(int layer) const;
+		int ext_layer_code(int layer) const;
 		void set_layer_code(int layer, int code);
 
 		void resize_layers(int layers);
 
-		int get_layers() const;
+		int layers() const;
 
-		bool contains(const Code &code) const;
-		int get_differing_layer(const Code &code) const;
+		bool contains(const code &code) const;
+		int differing_layer(const code &code) const;
 
-		Code &operator=(const Code &region);
+		code &operator=(const code &region);
 
-		std::string get_string() const;
+		std::string string() const;
 
-		friend std::ostream& operator<<(std::ostream& stream, const Code& code);
+		friend std::ostream& operator<<(std::ostream& stream, const code& code);
+
 	private:
 		int layers_;
 		char *code_;
 	};
 
-	std::ostream& operator<<(std::ostream& stream, const Code& code);
+	std::ostream& operator<<(std::ostream& stream, const code& code);
 }
 
 #endif

@@ -4,9 +4,11 @@
 #include <string>
 
 namespace ddsn {
-	class Block {
+	class block {
 	public:
-		Block();
+		block();
+		~block();
+
 	private:
 	};
 }
