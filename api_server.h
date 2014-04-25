@@ -1,9 +1,9 @@
 #ifndef DDSN_API_SERVER_H
 #define DDSN_API_SERVER_H
 
-#include "boost/asio.hpp"
-
 #include "local_peer.h"
+
+#include <boost/asio.hpp>
 
 using boost::asio::io_service;
 using boost::asio::ip::tcp;
