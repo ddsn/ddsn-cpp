@@ -12,16 +12,18 @@ using boost::system::error_code;
 namespace ddsn {
 	class api_connection : public std::enable_shared_from_this<api_connection> {
 	public:
-		typedef boost::shared_ptr<api_connection> pointer;
-
-		static pointer create(boost::asio::io_service& io_service);
+		api_connection(io_service& io_service);
 
 		tcp::socket& socket();
 		void start();
 	private:
-		api_connection(io_service& io_service);
+		void handle_read_line(const boost::system::error_code& error, std::size_t bytes_transferred);
+		void handle_write(const boost::system::error_code& error, std::size_t bytes_transferred);
 
 		tcp::socket socket_;
+
+		boost::asio::streambuf streambuf_;
+		std::string response_;
 	};
 
 	class api_server {
@@ -31,7 +33,7 @@ namespace ddsn {
 
 		void start_accept();
 	private:
-		void handle_accept(api_connection::pointer new_connection, const error_code& error);
+		void handle_accept(api_connection *new_connection, const error_code& error);
 
 		local_peer &local_peer_;
 		io_service &io_service_;
