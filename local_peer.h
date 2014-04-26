@@ -1,7 +1,7 @@
 #ifndef DDSN_LOCAL_PEER_H
 #define DDSN_LOCAL_PEER_H
 
-#include "code.h"
+#include "block.h"
 
 namespace ddsn {
 	class local_peer {
@@ -9,8 +9,13 @@ namespace ddsn {
 		local_peer();
 		~local_peer();
 
+		const code &code();
+
+		void store(const block &block);
+		void load(block &block);
+		bool exists(const ddsn::code &code);
 	private:
-		code code_;
+		ddsn::code code_;
 	};
 }
 

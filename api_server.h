@@ -15,6 +15,8 @@ namespace ddsn {
 
 	class api_connection : public std::enable_shared_from_this<api_connection> {
 	public:
+		typedef std::shared_ptr<api_connection> pointer;
+
 		static int connections;
 
 		api_connection(local_peer &local_peer, io_service& io_service);
@@ -30,14 +32,13 @@ namespace ddsn {
 		void close();
 	private:
 		void handle_read(const boost::system::error_code& error, std::size_t bytes_transferred);
-		void handle_write(const boost::system::error_code& error, std::size_t bytes_transferred);
+		void handle_write(boost::asio::streambuf *snd_streambuf, const boost::system::error_code& error, std::size_t bytes_transferred);
 
 		local_peer &local_peer_;
 
 		tcp::socket socket_;
 
 		boost::asio::streambuf rcv_streambuf_;
-		boost::asio::streambuf snd_streambuf_;
 		api_message *message_;
 
 		int read_type_;
@@ -53,7 +54,7 @@ namespace ddsn {
 
 		void start_accept();
 	private:
-		void handle_accept(api_connection *new_connection, const error_code& error);
+		void handle_accept(api_connection::pointer new_connection, const error_code& error);
 
 		local_peer &local_peer_;
 

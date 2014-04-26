@@ -4,6 +4,7 @@
 *.o
 *.obj
 ddsn
+blocks/*
 
 # Compiled Dynamic libraries
 *.so

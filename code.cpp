@@ -1,5 +1,7 @@
 #include "code.h"
 
+#include <openssl/sha.h>
+
 #include <assert.h>
 
 #include <cstring>
@@ -7,6 +9,16 @@
 #include <iostream>
 
 using namespace ddsn;
+
+code code::from_name(const std::string &name) {
+	unsigned char hash[SHA256_DIGEST_LENGTH];
+	SHA256_CTX sha256;
+	SHA256_Init(&sha256);
+	SHA256_Update(&sha256, name.c_str(), name.length());
+	SHA256_Final(hash, &sha256);
+	
+	return code(SHA256_DIGEST_LENGTH, (char *)hash);
+}
 
 code::code() {
 	code_ = new char[1];
@@ -28,17 +40,17 @@ code::code(int layers, const char *code) {
 	memcpy(code_, code, size);
 }
 
-code::code(std::string code) {
+code::code(std::string code, char delim) {
 	int layers;
 	const int code_length = code.length();
 
-	int colon_pos = code.find(':');
+	int delim_pos = code.find(delim);
 
-	if (colon_pos == std::string::npos) {
+	if (delim_pos == std::string::npos) {
 		layers = code_length * 4;
-		colon_pos = code_length;
+		delim_pos = code_length;
 	} else {
-		layers = colon_pos * 4 + (code_length - colon_pos - 1);
+		layers = delim_pos * 4 + (code_length - delim_pos - 1);
 	}
 
 	int size = (layers - 1) / 8 + 1;
@@ -48,9 +60,9 @@ code::code(std::string code) {
 
 	int l = 0;
 	for (int i = 0; i < code_length; i++) {
-		if (i > colon_pos) {
+		if (i > delim_pos) {
 			set_layer_code(l++, code[i] == '0' ? 0 : 1);
-		} else if (i < colon_pos) {
+		} else if (i < delim_pos) {
 			if (code[i] >= '0' && code[i] <= '9') {
 				int bits = code[i] - '0';
 				set_layer_code(l++, (bits >> 3) & 1);
@@ -147,19 +159,20 @@ code &code::operator=(const code &code) {
 	return *this;
 }
 
-std::string code::string() const {
+std::string code::string(char delim) const {
 	std::string string;
 	int i = 0;
 	for (; i + 3 < layers_; i += 4) {
 		int digit = layer_code(i) << 3 | layer_code(i + 1) << 2 | layer_code(i + 2) << 1 | layer_code(i + 3);
 		if (digit <= 9) {
 			string += (char)('0' + digit);
-		} else {
+		}
+		else {
 			string += (char)('a' + digit - 10);
 		}
 	}
 	if (i < layers_) {
-		string += ':';
+		string += delim;
 		for (; i < layers_; i++) {
 			string += layer_code(i) == 0 ? '0' : '1';
 		}

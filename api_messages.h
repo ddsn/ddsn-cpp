@@ -55,6 +55,20 @@ namespace ddsn {
 			int chunk_;
 			int file_size_;
 			int chunk_size_;
+			int data_pointer_;
+			char *data_;
+		};
+
+		class load_file : public api_message {
+		public:
+			load_file(local_peer &local_peer, api_connection &connection);
+			~load_file();
+
+			void first_action(int &type, size_t &expected_size);
+			void feed(const std::string &line, int &type, size_t &expected_size);
+			void feed(const char *data, size_t size, int &type, size_t &expected_size);
+		private:
+			code code_;
 		};
 	}
 }

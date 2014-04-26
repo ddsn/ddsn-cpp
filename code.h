@@ -6,10 +6,12 @@
 namespace ddsn {
 	class code {
 	public:
+		static code from_name(const std::string &name);
+
 		code();
 		code(int layers);
 		code(int layers, const char *code);
-		code(std::string code);
+		code(std::string code, char delim = ':');
 		code(const code &code);
 
 		~code();
@@ -27,7 +29,7 @@ namespace ddsn {
 
 		code &operator=(const code &region);
 
-		std::string string() const;
+		std::string string(char delim = ':') const;
 
 		friend std::ostream& operator<<(std::ostream& stream, const code& code);
 
