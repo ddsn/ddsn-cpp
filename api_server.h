@@ -1,6 +1,7 @@
 #ifndef DDSN_API_SERVER_H
 #define DDSN_API_SERVER_H
 
+#include "api_messages.h"
 #include "local_peer.h"
 
 #include <boost/asio.hpp>
@@ -10,20 +11,31 @@ using boost::asio::ip::tcp;
 using boost::system::error_code;
 
 namespace ddsn {
+	class api_message;
+
 	class api_connection : public std::enable_shared_from_this<api_connection> {
 	public:
 		api_connection(io_service& io_service);
 
 		tcp::socket& socket();
 		void start();
+
+		void send(const std::string &string);
+		void send(const char *bytes, size_t size);
+
+		void close();
 	private:
-		void handle_read_line(const boost::system::error_code& error, std::size_t bytes_transferred);
+		void handle_read(const boost::system::error_code& error, std::size_t bytes_transferred);
 		void handle_write(const boost::system::error_code& error, std::size_t bytes_transferred);
 
 		tcp::socket socket_;
 
 		boost::asio::streambuf streambuf_;
 		std::string response_;
+		api_message *message_;
+
+		int read_type_;
+		size_t read_bytes_;
 	};
 
 	class api_server {
@@ -36,6 +48,7 @@ namespace ddsn {
 		void handle_accept(api_connection *new_connection, const error_code& error);
 
 		local_peer &local_peer_;
+
 		io_service &io_service_;
 		tcp::acceptor acceptor_;
 		int port_;

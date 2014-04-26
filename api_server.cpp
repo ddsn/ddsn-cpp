@@ -1,4 +1,5 @@
 #include "api_server.h"
+#include "definitions.h"
 
 #include <boost/bind.hpp>
 
@@ -35,7 +36,7 @@ void api_server::handle_accept(api_connection *new_connection, const error_code&
 	start_accept();
 }
 
-api_connection::api_connection(io_service &io_service) : socket_(io_service) {
+api_connection::api_connection(io_service &io_service) : socket_(io_service), message_(nullptr) {
 
 }
 
@@ -44,38 +45,91 @@ tcp::socket &api_connection::socket() {
 }
 
 void api_connection::start() {
-	boost::asio::async_read_until(socket_, streambuf_, "\n", boost::bind(&api_connection::handle_read_line, this,
+	read_type_ == DDSN_API_MESSAGE_TYPE_STRING;
+
+	boost::asio::async_read_until(socket_, streambuf_, "\n", boost::bind(&api_connection::handle_read, this,
 		boost::asio::placeholders::error,
 		boost::asio::placeholders::bytes_transferred));
 }
 
-void api_connection::handle_read_line(const boost::system::error_code& error, std::size_t bytes_transferred) {
+void api_connection::send(const std::string &string) {
+	// TODO: Implement
+}
+
+void api_connection::send(const char *bytes, size_t size) {
+	// TODO: Implement
+}
+
+void api_connection::handle_read(const boost::system::error_code& error, std::size_t bytes_transferred) {
 	if (!error && bytes_transferred) {
 		std::cout << bytes_transferred << std::endl;
 
 		streambuf_.commit(bytes_transferred);
 
-		std::istream istream(&streambuf_);
-		std::string string;
-		istream >> string;
-
-		std::cout << string << std::endl;
-
-		if (string == "Ping") {
-			response_ = "Pong\n";
-
-			boost::asio::async_write(socket_, boost::asio::buffer(response_, response_.length()), boost::bind(&api_connection::handle_write, this,
+		if (read_type_ == DDSN_API_MESSAGE_TYPE_BYTES && streambuf_.size() < read_bytes_) {
+			boost::asio::async_read(socket_, streambuf_, boost::asio::transfer_exactly(read_bytes_ - streambuf_.size()), boost::bind(&api_connection::handle_read, this,
 				boost::asio::placeholders::error,
 				boost::asio::placeholders::bytes_transferred));
+			return;
+		}
+
+		std::istream istream(&streambuf_);
+
+		if (read_type_ == DDSN_API_MESSAGE_TYPE_BYTES) {
+			
+		} else if (read_type_ == DDSN_API_MESSAGE_TYPE_STRING) {
+		}
+
+		if (message_ == nullptr) {
+			std::string string;
+			istream >> string;
+			message_ = api_message::create_message(string);
+
+			if (message_ == nullptr) {
+				close();
+			}
+		} else {
+			if (read_type_ == DDSN_API_MESSAGE_TYPE_BYTES) {
+				char *bytes = new char[read_bytes_];
+				istream.get(bytes, read_bytes_);
+				std::cout << "received " << read_bytes_ << " bytes" << std::endl;
+				message_->feed(bytes, read_bytes_, read_type_, read_bytes_);
+				delete[] bytes;
+			}
+			else if (read_type_ == DDSN_API_MESSAGE_TYPE_STRING) {
+				std::string string;
+				istream >> string;
+				std::cout << string << std::endl;
+				message_->feed(string, read_type_, read_bytes_);
+			}
+
+			if (read_type_ == DDSN_API_MESSAGE_TYPE_CLOSE || read_type_ == DDSN_API_MESSAGE_TYPE_END) {
+				close();
+			} else if (read_type_ == DDSN_API_MESSAGE_TYPE_END) {
+				message_ = nullptr;
+				read_type_ = DDSN_API_MESSAGE_TYPE_STRING;
+			}
+
+			if (read_type_ == DDSN_API_MESSAGE_TYPE_STRING) {
+				boost::asio::async_read_until(socket_, streambuf_, "\n", boost::bind(&api_connection::handle_read, this,
+					boost::asio::placeholders::error,
+					boost::asio::placeholders::bytes_transferred));
+			} else if (read_type_ == DDSN_API_MESSAGE_TYPE_BYTES) {
+				boost::asio::async_read(socket_, streambuf_, boost::asio::transfer_exactly(read_bytes_), boost::bind(&api_connection::handle_read, this,
+					boost::asio::placeholders::error,
+					boost::asio::placeholders::bytes_transferred));
+			}
 		}
 	} else {
-		std::cout << "close connection..." << std::endl;
-
-		socket_.close();
+		close();
 	}
 }
 
 void api_connection::handle_write(const boost::system::error_code& error, std::size_t bytes_transferred) {
+	close();
+}
+
+void api_connection::close() {
 	std::cout << "close connection..." << std::endl;
 	socket_.close();
 	delete this;
