@@ -1,5 +1,6 @@
 #include "api_server.h"
 #include "local_peer.h"
+#include "peer_server.h"
 
 #include "boost/asio.hpp"
 
@@ -16,8 +17,10 @@ int main(int argc, char *argv[]) {
 
 	local_peer *my_peer = new local_peer();
 
+	peer_server peer_server(*my_peer, io_service);
 	api_server api_server(*my_peer, io_service);
 
+	peer_server.start_accept();
 	api_server.start_accept();
 
 	io_service.run();

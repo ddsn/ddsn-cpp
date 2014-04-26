@@ -142,7 +142,7 @@ api_server::~api_server() {
 void api_server::start_accept() {
 	api_connection::pointer new_connection = api_connection::pointer(new api_connection(local_peer_, io_service_));
 
-	std::cout << "Waiting for connection API#" << new_connection->id() << std::endl;
+	std::cout << "Waiting for connection API#" << new_connection->id() << " on port " << port_ << std::endl;
 
 	acceptor_.async_accept(new_connection->socket(),
 		boost::bind(&api_server::handle_accept, this, new_connection->shared_from_this(),
