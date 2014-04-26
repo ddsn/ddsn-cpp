@@ -1,6 +1,8 @@
 #ifndef DDSN_LOCAL_PEER_H
 #define DDSN_LOCAL_PEER_H
 
+#include "code.h"
+
 namespace ddsn {
 	class local_peer {
 	public:
@@ -8,7 +10,7 @@ namespace ddsn {
 		~local_peer();
 
 	private:
-
+		code code_;
 	};
 }
 
