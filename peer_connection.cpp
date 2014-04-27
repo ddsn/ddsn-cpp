@@ -1,10 +1,11 @@
-#include "../definitions.h"
-
 #include "peer_connection.h"
+
+#include "definitions.h"
 
 #include <boost/bind.hpp>
 
 using namespace ddsn;
+using namespace std;
 using boost::asio::io_service;
 using boost::asio::ip::tcp;
 
@@ -16,7 +17,7 @@ local_peer_(local_peer), socket_(io_service), message_(nullptr) {
 }
 
 peer_connection::~peer_connection() {
-	std::cout << "PEER#" << id_ << " DELETED" << std::endl;
+	cout << "PEER#" << id_ << " DELETED" << endl;
 }
 
 tcp::socket &peer_connection::socket() {
@@ -35,9 +36,9 @@ void peer_connection::start() {
 		boost::asio::placeholders::bytes_transferred));
 }
 
-void peer_connection::send(const std::string &string) {
+void peer_connection::send(const string &string) {
 	boost::asio::streambuf *snd_streambuf = new boost::asio::streambuf();
-	std::ostream ostream(snd_streambuf);
+	ostream ostream(snd_streambuf);
 
 	ostream << string;
 
@@ -49,7 +50,7 @@ void peer_connection::send(const std::string &string) {
 
 void peer_connection::send(const char *bytes, size_t size) {
 	boost::asio::streambuf *snd_streambuf = new boost::asio::streambuf();
-	std::ostream ostream(snd_streambuf);
+	ostream ostream(snd_streambuf);
 
 	ostream.write(bytes, size);
 
@@ -59,13 +60,13 @@ void peer_connection::send(const char *bytes, size_t size) {
 		boost::asio::placeholders::bytes_transferred));
 }
 
-void peer_connection::handle_read(const boost::system::error_code& error, std::size_t bytes_transferred) {
+void peer_connection::handle_read(const boost::system::error_code& error, size_t bytes_transferred) {
 	if (!error && bytes_transferred) {
-		std::istream istream(&rcv_streambuf_);
+		istream istream(&rcv_streambuf_);
 
 		if (message_ == nullptr) {
-			std::string string;
-			std::getline(istream, string);
+			string string;
+			getline(istream, string);
 
 			message_ = peer_message::create_message(local_peer_, foreign_peer_, *this, string);
 
@@ -74,7 +75,7 @@ void peer_connection::handle_read(const boost::system::error_code& error, std::s
 				return;
 			}
 			else {
-				std::cout << "PEER#" << id_ << " " << string << std::endl;
+				cout << "PEER#" << id_ << " " << string << endl;
 
 				message_->first_action(read_type_, read_bytes_);
 			}
@@ -87,8 +88,8 @@ void peer_connection::handle_read(const boost::system::error_code& error, std::s
 				delete[] bytes;
 			}
 			else if (read_type_ == DDSN_PEER_MESSAGE_TYPE_STRING) {
-				std::string string;
-				std::getline(istream, string);
+				string string;
+				getline(istream, string);
 				message_->feed(string, read_type_, read_bytes_);
 			}
 		}
@@ -120,11 +121,11 @@ void peer_connection::handle_read(const boost::system::error_code& error, std::s
 	}
 }
 
-void peer_connection::handle_write(boost::asio::streambuf *snd_streambuf, const boost::system::error_code& error, std::size_t bytes_transferred) {
+void peer_connection::handle_write(boost::asio::streambuf *snd_streambuf, const boost::system::error_code& error, size_t bytes_transferred) {
 	delete snd_streambuf;
 }
 
 void peer_connection::close() {
-	std::cout << "PEER#" << id_ << " CLOSE (on my behalf)" << std::endl;
+	cout << "PEER#" << id_ << " CLOSE (on my behalf)" << endl;
 	socket_.close();
 }

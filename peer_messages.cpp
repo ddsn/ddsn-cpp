@@ -1,13 +1,12 @@
-#include "../definitions.h"
-
 #include "peer_messages.h"
+#include "definitions.h"
 
 #include <boost/lexical_cast.hpp>
 
 using namespace ddsn;
-using namespace ddsn::peer_messages;
+using namespace std;
 
-peer_message *peer_message::create_message(local_peer &local_peer, foreign_peer *foreign_peer, peer_connection &connection, const std::string &first_line) {
+peer_message *peer_message::create_message(local_peer &local_peer, foreign_peer *foreign_peer, peer_connection &connection, const string &first_line) {
 	return nullptr;
 }
 

@@ -1,9 +1,8 @@
-#include "../definitions.h"
-
 #include "api_connection.h"
 
-#include <boost/bind.hpp>
+#include "definitions.h"
 
+#include <boost/bind.hpp>
 #include <iostream>
 
 using namespace ddsn;

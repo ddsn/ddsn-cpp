@@ -1,14 +1,13 @@
 #include "code.h"
 
 #include <openssl/sha.h>
-
-#include <assert.h>
-
 #include <cstring>
 #include <memory>
 #include <iostream>
+#include <assert.h>
 
 using namespace ddsn;
+using namespace std;
 
 code code::from_name(const std::string &name) {
 	unsigned char hash[SHA256_DIGEST_LENGTH];
@@ -46,7 +45,7 @@ code::code(std::string code, char delim) {
 
 	int delim_pos = code.find(delim);
 
-	if (delim_pos == std::string::npos) {
+	if (delim_pos == string::npos) {
 		layers = code_length * 4;
 		delim_pos = code_length;
 	} else {
@@ -159,7 +158,7 @@ code &code::operator=(const code &code) {
 	return *this;
 }
 
-std::string code::string(char delim) const {
+string code::string(char delim) const {
 	std::string string;
 	int i = 0;
 	for (; i + 3 < layers_; i += 4) {
@@ -181,7 +180,7 @@ std::string code::string(char delim) const {
 }
 
 namespace ddsn {
-	std::ostream& operator<<(std::ostream& stream, const code& code) {
+	ostream& operator<<(ostream& stream, const code& code) {
 		stream << code.string();
 		return stream;
 	}

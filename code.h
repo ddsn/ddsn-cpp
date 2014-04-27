@@ -4,41 +4,43 @@
 #include <string>
 
 namespace ddsn {
-	class code {
-	public:
-		static code from_name(const std::string &name);
 
-		code();
-		code(int layers);
-		code(int layers, const char *code);
-		code(std::string code, char delim = ':');
-		code(const code &code);
+class code {
+public:
+	static code from_name(const std::string &name);
 
-		~code();
+	code();
+	code(int layers);
+	code(int layers, const char *code);
+	code(std::string code, char delim = ':');
+	code(const code &code);
 
-		int layer_code(int layer) const;
-		int ext_layer_code(int layer) const;
-		void set_layer_code(int layer, int code);
+	~code();
 
-		void resize_layers(int layers);
+	int layer_code(int layer) const;
+	int ext_layer_code(int layer) const;
+	void set_layer_code(int layer, int code);
 
-		int layers() const;
+	void resize_layers(int layers);
 
-		bool contains(const code &code) const;
-		int differing_layer(const code &code) const;
+	int layers() const;
 
-		code &operator=(const code &region);
+	bool contains(const code &code) const;
+	int differing_layer(const code &code) const;
 
-		std::string string(char delim = ':') const;
+	code &operator=(const code &region);
 
-		friend std::ostream& operator<<(std::ostream& stream, const code& code);
+	std::string string(char delim = ':') const;
 
-	private:
-		int layers_;
-		char *code_;
-	};
+	friend std::ostream& operator<<(std::ostream& stream, const code& code);
 
-	std::ostream& operator<<(std::ostream& stream, const code& code);
+private:
+	int layers_;
+	char *code_;
+};
+
+std::ostream& operator<<(std::ostream& stream, const code& code);
+
 }
 
 #endif

@@ -6,25 +6,27 @@
 #include <string>
 
 namespace ddsn {
-	class block {
-	public:
-		block(const std::string &name);
-		block(const code &code);
-		~block();
 
-		void set_data(const char *data, size_t size);
-		char *data();
-		const code &code() const;
-		size_t size() const;
+class block {
+public:
+	block(const std::string &name);
+	block(const code &code);
+	~block();
 
-		int load_from_filesystem();
-		int save_to_filesystem() const;
-	private:
-		std::string name_;
-		ddsn::code code_;
-		char *data_;
-		size_t size_;
-	};
+	void set_data(const char *data, size_t size);
+	char *data();
+	const code &code() const;
+	size_t size() const;
+
+	int load_from_filesystem();
+	int save_to_filesystem() const;
+private:
+	std::string name_;
+	ddsn::code code_;
+	char *data_;
+	size_t size_;
+};
+
 }
 
 #endif
