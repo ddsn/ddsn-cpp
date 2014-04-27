@@ -3,6 +3,8 @@
 
 #include "block.h"
 
+#include <openssl/rsa.h>
+
 namespace ddsn {
 
 class local_peer {
@@ -12,6 +14,16 @@ public:
 
 	const code &code() const;
 	bool integrated() const;
+	int capacity() const;
+
+	void set_integrated(bool integrated);
+	void set_capacity(int capactiy);
+
+	int load_peer_key();
+	int save_peer_key();
+	void generate_peer_key();
+
+	void load_area_keys();
 
 	void store(const block &block);
 	void load(block &block);
@@ -19,6 +31,9 @@ public:
 private:
 	ddsn::code code_;
 	bool integrated_;
+	int capacity_;
+	int blocks_;
+	RSA *keypair_;
 };
 
 }

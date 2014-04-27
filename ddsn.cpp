@@ -19,6 +19,7 @@ int main(int argc, char *argv[]) {
 		("version", "print version")
 		("peer-port", po::value<int>()->default_value(4494), "set peer port")
 		("api-port", po::value<int>()->default_value(4495), "set api port")
+		("integrated", "start as peer of a new network")
 		;
 
 	po::variables_map vm;
@@ -37,10 +38,10 @@ int main(int argc, char *argv[]) {
 
 	boost::asio::io_service io_service;
 
-	local_peer *my_peer = new local_peer();
+	local_peer my_peer;
 
-	peer_server peer_server(*my_peer, io_service);
-	api_server api_server(*my_peer, io_service);
+	peer_server peer_server(my_peer, io_service);
+	api_server api_server(my_peer, io_service);
 
 	if (vm.count("peer-port")) {
 		peer_server.set_port(vm["peer-port"].as<int>());
@@ -48,6 +49,18 @@ int main(int argc, char *argv[]) {
 
 	if (vm.count("api-port")) {
 		api_server.set_port(vm["api-port"].as<int>());
+	}
+
+	if (vm.count("integrated")) {
+		my_peer.set_integrated(true);
+	}
+
+	if (my_peer.load_peer_key() != 0) {
+		cout << "generate peer key" << endl;
+		my_peer.generate_peer_key();
+		my_peer.save_peer_key();
+	} else {
+		cout << "loaded peer key" << endl;
 	}
 
 	peer_server.start_accept();
