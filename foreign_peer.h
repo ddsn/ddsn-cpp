@@ -1,7 +1,7 @@
 #ifndef DDSN_FOREIGN_PEER_H
 #define DDSN_FOREIGN_PEER_H
 
-#include "peer_server.h"
+#include "peer_networking/peer_connection.h"
 
 namespace ddsn {
 	class peer_connection;

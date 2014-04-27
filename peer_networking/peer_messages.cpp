@@ -1,5 +1,6 @@
+#include "../definitions.h"
+
 #include "peer_messages.h"
-#include "definitions.h"
 
 #include <boost/lexical_cast.hpp>
 

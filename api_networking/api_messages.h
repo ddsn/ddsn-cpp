@@ -1,8 +1,9 @@
 #ifndef DDSN_API_MESSAGES_H
 #define DDSN_API_MESSAGES_H
 
-#include "api_server.h"
-#include "local_peer.h"
+#include "api_connection.h"
+
+#include "../local_peer.h"
 
 #include <string>
 

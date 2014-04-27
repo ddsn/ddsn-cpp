@@ -1,9 +1,8 @@
 #ifndef DDSN_PEER_MESSAGES_H
 #define DDSN_PEER_MESSAGES_H
 
-#include "foreign_peer.h"
-#include "local_peer.h"
-#include "peer_server.h"
+#include "../foreign_peer.h"
+#include "../local_peer.h"
 
 namespace ddsn {
 	class foreign_peer;

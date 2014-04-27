@@ -1,6 +1,7 @@
-#include "api_server.h"
+#include "api_networking/api_server.h"
+#include "peer_networking/peer_server.h"
+
 #include "local_peer.h"
-#include "peer_server.h"
 
 #include "boost/asio.hpp"
 
