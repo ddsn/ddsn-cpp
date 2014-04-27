@@ -2,9 +2,11 @@
 #define DDSN_LOCAL_PEER_H
 
 #include "block.h"
+#include "foreign_peer.h"
 #include "peer_id.h"
 
 #include <openssl/rsa.h>
+#include <unordered_map>
 
 namespace ddsn {
 
@@ -39,6 +41,7 @@ private:
 	int capacity_;
 	int blocks_;
 	RSA *keypair_;
+	std::unordered_map<peer_id, foreign_peer *> foreign_peers_;
 };
 
 }

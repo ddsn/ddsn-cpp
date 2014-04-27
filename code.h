@@ -28,7 +28,8 @@ public:
 	bool contains(const code &code) const;
 	int differing_layer(const code &code) const;
 
-	code &operator=(const code &region);
+	code &operator=(const code &code);
+	bool operator==(const code &code) const;
 
 	std::string string(char delim = ':') const;
 

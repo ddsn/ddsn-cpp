@@ -56,14 +56,14 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (my_peer.load_peer_key() != 0) {
-		cout << "generate peer key" << endl;
+		cout << "Generate peer key" << endl;
 		my_peer.generate_peer_key();
 		my_peer.save_peer_key();
 	} else {
-		cout << "loaded peer key" << endl;
+		cout << "Loaded peer key" << endl;
 	}
 
-	cout << "your id is " << my_peer.id() << endl;
+	cout << "Your id is " << my_peer.id().short_string() << endl;
 
 	peer_server.start_accept();
 	api_server.start_accept();

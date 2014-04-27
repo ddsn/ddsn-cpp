@@ -7,6 +7,7 @@
 namespace ddsn {
 
 class foreign_peer;
+class local_peer;
 class peer_connection;
 
 class peer_message {

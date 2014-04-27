@@ -10,6 +10,7 @@
 namespace ddsn {
 
 class foreign_peer;
+class local_peer;
 class peer_message;
 
 class peer_connection : public std::enable_shared_from_this<peer_connection> {

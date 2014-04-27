@@ -16,13 +16,23 @@ public:
 	void set_id(unsigned char id[32]);
 
 	peer_id &operator=(const peer_id &peer_id);
+	bool operator==(const peer_id &peer_id) const;
 
 	std::string string() const;
+	std::string short_string() const;
 
 	friend std::ostream& operator<<(std::ostream& stream, const peer_id& peer_id);
 
 private:
 	unsigned char id_[32];
+};
+
+}
+
+namespace std {
+
+template <> struct hash<ddsn::peer_id> {
+	size_t operator()(const ddsn::peer_id &peer_id) const;
 };
 
 }
