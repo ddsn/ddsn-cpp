@@ -2,6 +2,7 @@
 #define DDSN_LOCAL_PEER_H
 
 #include "block.h"
+#include "peer_id.h"
 
 #include <openssl/rsa.h>
 
@@ -12,6 +13,7 @@ public:
 	local_peer();
 	~local_peer();
 
+	const peer_id &id() const;
 	const code &code() const;
 	bool integrated() const;
 	int capacity() const;
@@ -29,6 +31,9 @@ public:
 	void load(block &block);
 	bool exists(const ddsn::code &code);
 private:
+	void create_id_from_key();
+
+	peer_id id_;
 	ddsn::code code_;
 	bool integrated_;
 	int capacity_;

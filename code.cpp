@@ -16,25 +16,25 @@ code code::from_name(const std::string &name) {
 	SHA256_Update(&sha256, name.c_str(), name.length());
 	SHA256_Final(hash, &sha256);
 	
-	return code(SHA256_DIGEST_LENGTH, (char *)hash);
+	return code(SHA256_DIGEST_LENGTH, hash);
 }
 
 code::code() {
-	code_ = new char[1];
+	code_ = new unsigned char[1];
 	layers_ = 0;
 	memset(code_, 0, 1);
 }
 
 code::code(int layers) {
 	int size = (layers - 1) / 8 + 1;
-	code_ = new char[size];
+	code_ = new unsigned char[size];
 	layers_ = layers;
 	memset(code_, 0, size);
 }
 
-code::code(int layers, const char *code) {
+code::code(int layers, const unsigned char *code) {
 	int size = (layers - 1) / 8 + 1;
-	code_ = new char[size];
+	code_ = new unsigned char[size];
 	layers_ = layers;
 	memcpy(code_, code, size);
 }
@@ -53,7 +53,7 @@ code::code(std::string code, char delim) {
 	}
 
 	int size = (layers - 1) / 8 + 1;
-	code_ = new char[size];
+	code_ = new unsigned char[size];
 	layers_ = layers;
 	memset(code_, 0, size);
 
@@ -81,7 +81,7 @@ code::code(std::string code, char delim) {
 
 code::code(const code &code) {
 	int size = (code.layers_ - 1) / 8 + 1;
-	code_ = new char[size];
+	code_ = new unsigned char[size];
 	layers_ = code.layers_;
 	memcpy(code_, code.code_, size);
 }
@@ -116,7 +116,7 @@ void code::resize_layers(int layers) {
 		int newSize = (layers - 1) / 8 + 1;
 
 		if (newSize > oldSize) {
-			char *newcode = new char[newSize];
+			unsigned char *newcode = new unsigned char[newSize];
 			memcpy(newcode, code_, oldSize);
 
 			delete[] code_;
@@ -152,7 +152,7 @@ int code::differing_layer(const code &code) const {
 code &code::operator=(const code &code) {
 	int size = (code.layers_ - 1) / 8 + 1;
 	delete[] code_;
-	code_ = new char[size];
+	code_ = new unsigned char[size];
 	layers_ = code.layers_;
 	memcpy(code_, code.code_, size);
 	return *this;

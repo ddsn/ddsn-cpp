@@ -1,6 +1,7 @@
 #include "local_peer.h"
 
 #include <openssl/pem.h>
+#include <openssl/sha.h>
 #include <fstream>
 #include <iostream>
 
@@ -13,6 +14,10 @@ local_peer::local_peer() : integrated_(false), blocks_(0) {
 
 local_peer::~local_peer() {
 
+}
+
+const peer_id &local_peer::id() const {
+	return id_;
 }
 
 const code &local_peer::code() const {
@@ -58,6 +63,8 @@ int local_peer::load_peer_key() {
 		return 1;
 	}
 
+	create_id_from_key();
+
 	return 0;
 }
 
@@ -88,6 +95,8 @@ int local_peer::save_peer_key() {
 
 void local_peer::generate_peer_key() {
 	keypair_ = RSA_generate_key(2048, 3, NULL, NULL);
+
+	create_id_from_key();
 }
 
 void local_peer::load_area_keys() {
@@ -106,4 +115,22 @@ void local_peer::load(block &block) {
 		cout << "load " << block.code().string('_') << " from filesystem" << endl;
 		block.load_from_filesystem();
 	}
+}
+
+void local_peer::create_id_from_key() {
+	unsigned char *buf, *p;
+	int len = i2d_RSAPublicKey(keypair_, nullptr);
+	buf = new unsigned char[len];
+	p = buf;
+	i2d_RSAPublicKey(keypair_, &p);
+
+	unsigned char hash[32];
+	SHA256_CTX sha256;
+	SHA256_Init(&sha256);
+	SHA256_Update(&sha256, buf, len);
+	SHA256_Final(hash, &sha256);
+
+	delete[] buf;
+
+	id_.set_id(hash);
 }

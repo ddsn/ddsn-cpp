@@ -63,6 +63,8 @@ int main(int argc, char *argv[]) {
 		cout << "loaded peer key" << endl;
 	}
 
+	cout << "your id is " << my_peer.id() << endl;
+
 	peer_server.start_accept();
 	api_server.start_accept();
 

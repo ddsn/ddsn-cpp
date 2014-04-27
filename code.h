@@ -11,7 +11,7 @@ public:
 
 	code();
 	code(int layers);
-	code(int layers, const char *code);
+	code(int layers, const unsigned char *code);
 	code(std::string code, char delim = ':');
 	code(const code &code);
 
@@ -36,7 +36,7 @@ public:
 
 private:
 	int layers_;
-	char *code_;
+	unsigned char *code_;
 };
 
 std::ostream& operator<<(std::ostream& stream, const code& code);
