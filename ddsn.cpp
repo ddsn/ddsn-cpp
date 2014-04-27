@@ -20,6 +20,7 @@ int main(int argc, char *argv[]) {
 		("peer-port", po::value<int>()->default_value(4494), "set peer port")
 		("api-port", po::value<int>()->default_value(4495), "set api port")
 		("integrated", "start as peer of a new network")
+		("capacity", po::value<int>()->default_value(128), "maximum number of blocks to store")
 		;
 
 	po::variables_map vm;
@@ -61,6 +62,10 @@ int main(int argc, char *argv[]) {
 		my_peer.save_peer_key();
 	} else {
 		cout << "Loaded peer key" << endl;
+	}
+
+	if (vm.count("capacity")) {
+		my_peer.set_capacity(vm["capacity"].as<int>());
 	}
 
 	cout << "Your id is " << my_peer.id().short_string() << endl;

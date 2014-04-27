@@ -20,6 +20,10 @@ peer_connection::~peer_connection() {
 	cout << "PEER#" << id_ << " DELETED" << endl;
 }
 
+void peer_connection::set_foreign_peer(foreign_peer *foreign_peer) {
+	foreign_peer_ = foreign_peer;
+}
+
 tcp::socket &peer_connection::socket() {
 	return socket_;
 }
