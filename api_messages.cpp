@@ -7,7 +7,7 @@
 using namespace ddsn;
 using namespace std;
 
-api_message *api_message::create_message(local_peer &local_peer, api_connection &connection, const string &first_line) {
+api_message *api_message::create_message(local_peer &local_peer, api_connection::pointer connection, const string &first_line) {
 	if (first_line == "PING") {
 		return new api_ping(local_peer, connection);
 	} else if (first_line == "STORE FILE") {
@@ -21,7 +21,7 @@ api_message *api_message::create_message(local_peer &local_peer, api_connection 
 	return nullptr;
 }
 
-api_message::api_message(local_peer &local_peer, api_connection &connection) : local_peer_(local_peer), connection_(connection) {
+api_message::api_message(local_peer &local_peer, api_connection::pointer connection) : local_peer_(local_peer), connection_(connection) {
 
 }
 
@@ -31,7 +31,7 @@ api_message::~api_message() {
 
 // PING
 
-api_ping::api_ping(local_peer &local_peer, api_connection &connection) : api_message(local_peer, connection) {
+api_ping::api_ping(local_peer &local_peer, api_connection::pointer connection) : api_message(local_peer, connection) {
 	
 }
 
@@ -42,7 +42,7 @@ api_ping::~api_ping() {
 void api_ping::first_action(int &type, size_t &expected_size) {
 	type = DDSN_API_MESSAGE_TYPE_END;
 
-	connection_.send("PONG\n");
+	connection_->send("PONG\n");
 }
 
 void api_ping::feed(const string &line, int &type, size_t &expected_size) {
@@ -55,8 +55,8 @@ void api_ping::feed(const char *data, size_t size, int &type, size_t &expected_s
 
 // STORE FILE
 
-api_store_file::api_store_file(local_peer &local_peer, api_connection &connection) :
-api_message(local_peer, connection), state_(0), chunk_(0), data_pointer_(0) {
+api_store_file::api_store_file(local_peer &local_peer, api_connection::pointer connection) :
+	api_message(local_peer, connection), state_(0), chunk_(0), data_pointer_(0) {
 	
 }
 
@@ -129,8 +129,7 @@ void api_store_file::feed(const char *data, size_t size, int &type, size_t &expe
 		data_pointer_ += size;
 
 		type = DDSN_API_MESSAGE_TYPE_STRING;
-	}
-	else {
+	} else {
 		memcpy(data_ + data_pointer_, data, size);
 
 		block block(file_name_);
@@ -138,7 +137,7 @@ void api_store_file::feed(const char *data, size_t size, int &type, size_t &expe
 
 		local_peer_.store(block);
 
-		connection_.send("FILE STORED\n"
+		connection_->send("FILE STORED\n"
 			"Block-code: " + block.code().string() + "\n"
 			"\n");
 
@@ -148,7 +147,7 @@ void api_store_file::feed(const char *data, size_t size, int &type, size_t &expe
 
 // LOAD FILE
 
-api_load_file::api_load_file(local_peer &local_peer, api_connection &connection) :
+api_load_file::api_load_file(local_peer &local_peer, api_connection::pointer connection) :
 	api_message(local_peer, connection) {
 
 }
@@ -167,13 +166,13 @@ void api_load_file::feed(const string &line, int &type, size_t &expected_size) {
 		local_peer_.load(block);
 
 		if (block.size() > 0) {
-			connection_.send("FILE LOADED\n"
+			connection_->send("FILE LOADED\n"
 				"File-size: " + boost::lexical_cast<string>(block.size()) + "\n"
 				"Block-code: " + code_.string('_') + "\n"
 				"\n");
-			connection_.send(block.data(), block.size());
+			connection_->send(block.data(), block.size());
 		} else {
-			connection_.send("FILE LOAD FAILED\n"
+			connection_->send("FILE LOAD FAILED\n"
 				"Block-code: " + code_.string('_') + "\n"
 				"\n");
 		}
@@ -200,8 +199,8 @@ void api_load_file::feed(const char *data, size_t size, int &type, size_t &expec
 
 // CONNECT PEER
 
-api_connect_peer::api_connect_peer(local_peer &local_peer, api_connection &connection) :
-api_message(local_peer, connection) {
+api_connect_peer::api_connect_peer(local_peer &local_peer, api_connection::pointer connection) :
+	api_message(local_peer, connection) {
 
 }
 

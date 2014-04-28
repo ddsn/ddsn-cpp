@@ -165,3 +165,8 @@ void local_peer::connect(string host, int port) {
 		cout << "Could not connect to " << host << ":" << port << endl;
 	}
 }
+
+void local_peer::add_foreign_peer(std::shared_ptr<foreign_peer> foreign_peer) {
+	foreign_peers_[foreign_peer->id()] = foreign_peer;
+	cout << "Added peer " << foreign_peer->id().short_string() << "; having " << foreign_peers_.size() << " peers now" << endl;
+}

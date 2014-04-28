@@ -13,11 +13,11 @@ using boost::asio::ip::tcp;
 int peer_connection::connections = 0;
 
 peer_connection::peer_connection(local_peer &local_peer, io_service &io_service) :
-local_peer_(local_peer), socket_(io_service), message_(nullptr), foreign_peer_(nullptr), introduced_(false) {
+local_peer_(local_peer), socket_(io_service), message_(nullptr), foreign_peer_(nullptr), introduced_(false), rcv_buffer_start_(0), rcv_buffer_end_(0) {
 	id_ = connections++;
 
-	rcv_buffer_ = new char[32];
-	rcv_buffer_size_ = 32;
+	rcv_buffer_ = new char[128];
+	rcv_buffer_size_ = 128;
 }
 
 peer_connection::~peer_connection() {
@@ -29,12 +29,20 @@ bool peer_connection::introduced() const {
 	return introduced_;
 }
 
-void peer_connection::set_foreign_peer(foreign_peer *foreign_peer) {
+bool peer_connection::got_welcome() const {
+	return got_welcome_;
+}
+
+void peer_connection::set_foreign_peer(std::shared_ptr<foreign_peer> foreign_peer) {
 	foreign_peer_ = foreign_peer;
 }
 
 void peer_connection::set_introduced(bool introduced) {
 	introduced_ = introduced;
+}
+
+void peer_connection::set_got_welcome(bool got_welcome) {
+	got_welcome_ = got_welcome;
 }
 
 tcp::socket &peer_connection::socket() {
@@ -48,7 +56,7 @@ int peer_connection::id() {
 void peer_connection::start() {
 	read_type_ = DDSN_PEER_MESSAGE_TYPE_STRING;
 
-	boost::asio::async_read_until(socket_, rcv_streambuf_, "\n", boost::bind(&peer_connection::handle_read, shared_from_this(),
+	socket_.async_read_some(boost::asio::buffer(rcv_buffer_, rcv_buffer_size_), boost::bind(&peer_connection::handle_read, shared_from_this(),
 		boost::asio::placeholders::error,
 		boost::asio::placeholders::bytes_transferred));
 }
@@ -85,66 +93,95 @@ void peer_connection::handle_read(const boost::system::error_code& error, size_t
 	}
 
 	if (bytes_transferred) {
-		if (message_ == nullptr) {
-			istream istream(&rcv_streambuf_);
+		rcv_buffer_end_ += bytes_transferred;
 
-			string string;
-			getline(istream, string);
+		bool comsumed;
+		size_t buffer_data;
 
-			message_ = peer_message::create_message(local_peer_, foreign_peer_, shared_from_this(), string);
+		do {
+			comsumed = false;
+			buffer_data = rcv_buffer_end_ - rcv_buffer_start_;
 
-			if (message_ == nullptr) {
-				close();
-				return;
+			if (message_ == nullptr || read_type_ == DDSN_PEER_MESSAGE_TYPE_STRING || read_type_ == DDSN_PEER_MESSAGE_TYPE_END) {
+				int end_line = -1;
+
+				for (unsigned int i = rcv_buffer_start_; i < rcv_buffer_end_; i++) {
+					if (rcv_buffer_[i] == '\n') {
+						end_line = i;
+						break;
+					}
+				}
+
+				if (end_line != -1) {
+					std::string line(rcv_buffer_ + rcv_buffer_start_, end_line - rcv_buffer_start_);
+					rcv_buffer_start_ = end_line + 1;
+
+					if (message_ == nullptr) {
+						message_ = peer_message::create_message(local_peer_, foreign_peer_, shared_from_this(), line);
+
+						if (message_ == nullptr) {
+							close();
+							return;
+						} else {
+							cout << "PEER#" << id_ << " message: " << " " << line << endl;
+
+							message_->first_action(read_type_, read_bytes_);
+						}
+					} else {
+						message_->feed(line, read_type_, read_bytes_);
+					}
+
+					comsumed = true;
+				}
+			} else {
+				if (read_bytes_ <= buffer_data) {
+					int tmp = read_bytes_;
+					message_->feed(rcv_buffer_ + rcv_buffer_start_, read_bytes_, read_type_, read_bytes_);
+					rcv_buffer_start_ += tmp;
+
+					comsumed = true;
+				}
 			}
-			else {
-				cout << "PEER#" << id_ << " message: " << " " << string << endl;
 
-				message_->first_action(read_type_, read_bytes_);
+			if (comsumed) {
+				if (read_type_ == DDSN_PEER_MESSAGE_TYPE_CLOSE || read_type_ == DDSN_PEER_MESSAGE_TYPE_ERROR) {
+					delete message_;
+					close();
+					return;
+				} else if (read_type_ == DDSN_PEER_MESSAGE_TYPE_END) {
+					delete message_;
+					message_ = nullptr;
+					read_type_ = DDSN_PEER_MESSAGE_TYPE_STRING;
+				}
 			}
-		}
-		else {
-			if (read_type_ == DDSN_PEER_MESSAGE_TYPE_BYTES) {
-				message_->feed(rcv_buffer_, read_bytes_, read_type_, read_bytes_);
-			}
-			else if (read_type_ == DDSN_PEER_MESSAGE_TYPE_STRING) {
-				istream istream(&rcv_streambuf_);
-				string string;
-				getline(istream, string);
 
-				message_->feed(string, read_type_, read_bytes_);
-			}
-		}
+		} while (comsumed);
 
-		if (read_type_ == DDSN_PEER_MESSAGE_TYPE_CLOSE || read_type_ == DDSN_PEER_MESSAGE_TYPE_ERROR) {
-			delete message_;
-			close();
-			return;
-		}
-		else if (read_type_ == DDSN_PEER_MESSAGE_TYPE_END) {
-			delete message_;
-			message_ = nullptr;
-			read_type_ = DDSN_PEER_MESSAGE_TYPE_STRING;
-		}
+		size_t buffer_size = rcv_buffer_size_ - rcv_buffer_end_;
 
-		if (read_type_ == DDSN_PEER_MESSAGE_TYPE_STRING) {
-			boost::asio::async_read_until(socket_, rcv_streambuf_, "\n", boost::bind(&peer_connection::handle_read, shared_from_this(),
-				boost::asio::placeholders::error,
-				boost::asio::placeholders::bytes_transferred));
-		}
-		else if (read_type_ == DDSN_PEER_MESSAGE_TYPE_BYTES) {
-			if (rcv_buffer_size_ < read_bytes_) {
+		if (buffer_size < 16 || (read_type_ == DDSN_PEER_MESSAGE_TYPE_BYTES && read_bytes_ > buffer_size)) {
+			if (read_type_ == DDSN_PEER_MESSAGE_TYPE_STRING || read_bytes_ <= rcv_buffer_size_) {
+				memmove(rcv_buffer_, rcv_buffer_ + rcv_buffer_start_, buffer_data);
+
+				rcv_buffer_start_ = 0;
+				rcv_buffer_end_ = buffer_data;
+				buffer_size = rcv_buffer_size_ - buffer_data;
+			} else {
+				char *new_buffer = new char[read_bytes_];
+				memcpy(new_buffer, rcv_buffer_ + rcv_buffer_start_, buffer_data);
 				delete[] rcv_buffer_;
-				rcv_buffer_ = new char[read_bytes_];
-				rcv_buffer_size_ = read_bytes_;
-			}
+				rcv_buffer_ = new_buffer;
 
-			boost::asio::async_read(socket_, boost::asio::buffer(rcv_buffer_, read_bytes_), boost::bind(&peer_connection::handle_read, shared_from_this(),
-				boost::asio::placeholders::error,
-				boost::asio::placeholders::bytes_transferred));
+				rcv_buffer_start_ = 0;
+				rcv_buffer_end_ = buffer_data;
+				rcv_buffer_size_ = read_bytes_;
+				buffer_size = rcv_buffer_size_ - buffer_data;
+			}
 		}
-	} else {
-		close();
+
+		socket_.async_read_some(boost::asio::buffer(rcv_buffer_ + rcv_buffer_end_, buffer_size), boost::bind(&peer_connection::handle_read, shared_from_this(),
+			boost::asio::placeholders::error,
+			boost::asio::placeholders::bytes_transferred));
 	}
 }
 

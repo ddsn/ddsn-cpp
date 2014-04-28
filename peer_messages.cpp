@@ -8,18 +8,20 @@
 using namespace ddsn;
 using namespace std;
 
-peer_message *peer_message::create_message(local_peer &local_peer, foreign_peer *foreign_peer, peer_connection::pointer connection, const string &first_line) {
+peer_message *peer_message::create_message(local_peer &local_peer, std::shared_ptr<foreign_peer> foreign_peer, peer_connection::pointer connection, const string &first_line) {
 	if (first_line == "HELLO") {
 		return new peer_hello(local_peer, foreign_peer, connection);
 	} else if (first_line == "PROVE IDENTITY") {
 		return new peer_prove_identity(local_peer, foreign_peer, connection);
 	} else if (first_line == "VERIFY IDENTITY") {
 		return new peer_verify_identity(local_peer, foreign_peer, connection);
+	} else if (first_line == "WELCOME") {
+		return new peer_welcome(local_peer, foreign_peer, connection);
 	}
 	return nullptr;
 }
 
-peer_message::peer_message(local_peer &local_peer, foreign_peer *foreign_peer, peer_connection::pointer connection) :
+peer_message::peer_message(local_peer &local_peer, std::shared_ptr<foreign_peer> foreign_peer, peer_connection::pointer connection) :
 	local_peer_(local_peer), foreign_peer_(foreign_peer), connection_(connection) {
 
 }
@@ -30,7 +32,7 @@ peer_message::~peer_message() {
 
 // HELLO
 
-peer_hello::peer_hello(local_peer &local_peer, foreign_peer *foreign_peer, peer_connection::pointer connection) :
+peer_hello::peer_hello(local_peer &local_peer, std::shared_ptr<foreign_peer> foreign_peer, peer_connection::pointer connection) :
 	peer_message(local_peer, foreign_peer, connection), state_(0) {
 
 }
@@ -81,7 +83,7 @@ void peer_hello::feed(const char *data, size_t size, int &type, size_t &expected
 	if (size == 32) {
 		peer_id foreign_id((unsigned char *)data);
 
-		foreign_peer_ = new foreign_peer();
+		foreign_peer_ = std::shared_ptr<foreign_peer>(new foreign_peer());
 		foreign_peer_->set_id(foreign_id);
 
 		connection_->set_foreign_peer(foreign_peer_);
@@ -112,7 +114,7 @@ void peer_hello::send() {
 
 // PROVE IDENTITY
 
-peer_prove_identity::peer_prove_identity(local_peer &local_peer, foreign_peer *foreign_peer, peer_connection::pointer connection) :
+peer_prove_identity::peer_prove_identity(local_peer &local_peer, std::shared_ptr<foreign_peer> foreign_peer, peer_connection::pointer connection) :
 	peer_message(local_peer, foreign_peer, connection) {
 
 }
@@ -149,7 +151,7 @@ void peer_prove_identity::send() {
 
 // VERIFY IDENTITY
 
-peer_verify_identity::peer_verify_identity(local_peer &local_peer, foreign_peer *foreign_peer, peer_connection::pointer connection) :
+peer_verify_identity::peer_verify_identity(local_peer &local_peer, std::shared_ptr<foreign_peer> foreign_peer, peer_connection::pointer connection) :
 	peer_message(local_peer, foreign_peer, connection) {
 
 }
@@ -189,6 +191,12 @@ void peer_verify_identity::feed(const char *data, size_t size, int &type, size_t
 
 			cout << "PEER#" << connection_->id() << " peer " << foreign_peer_->id().short_string() << " is now verified" << endl;
 
+			if (connection_->got_welcome()) {
+				local_peer_.add_foreign_peer(foreign_peer_);
+			}
+
+			peer_welcome(local_peer_, foreign_peer_, connection_).send();
+
 			if (!connection_->introduced()) {
 				peer_hello(local_peer_, foreign_peer_, connection_).send();
 				connection_->set_introduced(true);
@@ -213,4 +221,37 @@ void peer_verify_identity::send(string message) {
 	connection_->send((char *)sigret, siglen);
 
 	delete[] sigret;
+}
+
+// WELCOME
+
+peer_welcome::peer_welcome(local_peer &local_peer, std::shared_ptr<foreign_peer> foreign_peer, peer_connection::pointer connection) :
+	peer_message(local_peer, foreign_peer, connection) {
+
+}
+
+peer_welcome::~peer_welcome() {
+
+}
+
+void peer_welcome::first_action(int &type, size_t &expected_size) {
+	connection_->set_got_welcome(true);
+
+	if (foreign_peer_ && foreign_peer_->identity_verified()) {
+		local_peer_.add_foreign_peer(foreign_peer_);
+	}
+
+	type = DDSN_PEER_MESSAGE_TYPE_END;
+}
+
+void peer_welcome::feed(const std::string &line, int &type, size_t &expected_size) {
+	type = DDSN_PEER_MESSAGE_TYPE_ERROR;
+}
+
+void peer_welcome::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+	type = DDSN_PEER_MESSAGE_TYPE_ERROR;
+}
+
+void peer_welcome::send() {
+	connection_->send("WELCOME\n");
 }

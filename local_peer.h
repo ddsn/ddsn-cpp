@@ -41,6 +41,7 @@ public:
 
 	// peers
 	void connect(std::string host, int port);
+	void add_foreign_peer(std::shared_ptr<foreign_peer> foreign_peer);
 private:
 	void create_id_from_key();
 
@@ -51,7 +52,7 @@ private:
 	int capacity_;
 	int blocks_;
 	RSA *keypair_;
-	std::unordered_map<peer_id, foreign_peer *> foreign_peers_;
+	std::unordered_map<peer_id, std::shared_ptr<foreign_peer>> foreign_peers_;
 };
 
 }

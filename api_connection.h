@@ -1,7 +1,6 @@
 #ifndef DDSN_API_CONNECTION_H
 #define DDSN_API_CONNECTION_H
 
-#include "api_messages.h"
 #include "local_peer.h"
 
 #include <boost/asio.hpp>
@@ -41,6 +40,8 @@ private:
 
 	boost::asio::streambuf rcv_streambuf_;
 	char *rcv_buffer_;
+	size_t rcv_buffer_start_;
+	size_t rcv_buffer_end_;
 	size_t rcv_buffer_size_;
 	api_message *message_;
 

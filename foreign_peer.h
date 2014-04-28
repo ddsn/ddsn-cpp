@@ -33,7 +33,6 @@ private:
 	RSA *public_key_;
 	bool identity_verified_;
 	int verification_number_;
-
 };
 
 }
