@@ -8,7 +8,7 @@
 using namespace ddsn;
 using namespace std;
 
-local_peer::local_peer() : integrated_(false), blocks_(0) {
+local_peer::local_peer() : integrated_(false), blocks_(0), keypair_(nullptr) {
 
 }
 

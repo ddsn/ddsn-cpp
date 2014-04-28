@@ -1,5 +1,6 @@
 #include "block.h"
 
+#include <cstring>
 #include <fstream>
 #include <iostream>
 

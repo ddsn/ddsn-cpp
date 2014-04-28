@@ -1,5 +1,6 @@
 #include "peer_id.h"
 
+#include <cstring>
 #include <iostream>
 #include <memory>
 

@@ -10,13 +10,15 @@
 
 namespace ddsn {
 
+class foreign_peer;
+
 class local_peer {
 public:
 	local_peer();
 	~local_peer();
 
 	const peer_id &id() const;
-	const code &code() const;
+	const ddsn::code &code() const;
 	bool integrated() const;
 	int capacity() const;
 
