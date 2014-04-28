@@ -40,6 +40,8 @@ private:
 	tcp::socket socket_;
 
 	boost::asio::streambuf rcv_streambuf_;
+	char *rcv_buffer_;
+	size_t rcv_buffer_size_;
 	api_message *message_;
 
 	int read_type_;

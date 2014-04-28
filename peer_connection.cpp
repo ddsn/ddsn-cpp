@@ -15,10 +15,14 @@ int peer_connection::connections = 0;
 peer_connection::peer_connection(local_peer &local_peer, io_service &io_service) :
 	local_peer_(local_peer), socket_(io_service), message_(nullptr) {
 	id_ = connections++;
+
+	rcv_buffer_ = new char[32];
+	rcv_buffer_size_ = 32;
 }
 
 peer_connection::~peer_connection() {
 	cout << "PEER#" << id_ << " DELETED" << endl;
+	delete[] rcv_buffer_;
 }
 
 void peer_connection::set_foreign_peer(foreign_peer *foreign_peer) {
@@ -75,9 +79,9 @@ void peer_connection::handle_read(const boost::system::error_code& error, size_t
 	if (!error && bytes_transferred) {
 		cout << "PEER#" << id_ << " read something" << endl;
 
-		istream istream(&rcv_streambuf_);
-
 		if (message_ == nullptr) {
+			istream istream(&rcv_streambuf_);
+
 			string string;
 			getline(istream, string);
 
@@ -95,12 +99,10 @@ void peer_connection::handle_read(const boost::system::error_code& error, size_t
 		}
 		else {
 			if (read_type_ == DDSN_PEER_MESSAGE_TYPE_BYTES) {
-				char *bytes = new char[read_bytes_];
-				istream.read(bytes, read_bytes_);
-				message_->feed(bytes, read_bytes_, read_type_, read_bytes_);
-				delete[] bytes;
+				message_->feed(rcv_buffer_, read_bytes_, read_type_, read_bytes_);
 			}
 			else if (read_type_ == DDSN_PEER_MESSAGE_TYPE_STRING) {
+				istream istream(&rcv_streambuf_);
 				string string;
 				getline(istream, string);
 				message_->feed(string, read_type_, read_bytes_);
@@ -128,7 +130,13 @@ void peer_connection::handle_read(const boost::system::error_code& error, size_t
 		else if (read_type_ == DDSN_PEER_MESSAGE_TYPE_BYTES) {
 			cout << "PEER#" << id_ << " read " << read_bytes_ << " bytes" << endl;
 
-			boost::asio::async_read(socket_, rcv_streambuf_, boost::bind(&peer_connection::handle_read, shared_from_this(),
+			if (rcv_buffer_size_ < read_bytes_) {
+				delete[] rcv_buffer_;
+				rcv_buffer_ = new char[read_bytes_];
+				rcv_buffer_size_ = read_bytes_;
+			}
+
+			boost::asio::async_read(socket_, boost::asio::buffer(rcv_buffer_, read_bytes_), boost::bind(&peer_connection::handle_read, shared_from_this(),
 				boost::asio::placeholders::error,
 				boost::asio::placeholders::bytes_transferred));
 		}

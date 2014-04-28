@@ -23,13 +23,14 @@ public:
 	void set_port(int port);
 
 	void start_accept();
+	void next_accept();
 private:
 	void handle_accept(api_connection::pointer new_connection, const error_code& error);
 
 	local_peer &local_peer_;
 
 	io_service &io_service_;
-	tcp::acceptor acceptor_;
+	tcp::acceptor *acceptor_;
 	int port_;
 };
 

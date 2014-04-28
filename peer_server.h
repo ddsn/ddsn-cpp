@@ -22,13 +22,14 @@ public:
 	void set_port(int port);
 
 	void start_accept();
+	void next_accept();
 private:
 	void handle_accept(peer_connection::pointer new_connection, const boost::system::error_code& error);
 
 	local_peer &local_peer_;
 
 	boost::asio::io_service &io_service_;
-	boost::asio::ip::tcp::acceptor acceptor_;
+	boost::asio::ip::tcp::acceptor *acceptor_;
 	int port_;
 };
 

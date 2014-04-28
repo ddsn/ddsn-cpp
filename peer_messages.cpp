@@ -12,9 +12,9 @@ peer_message *peer_message::create_message(local_peer &local_peer, foreign_peer 
 	if (first_line == "HELLO") {
 		return new peer_hello(local_peer, foreign_peer, connection);
 	} else if (first_line == "PROVE IDENTITY") {
-		return new peer_hello(local_peer, foreign_peer, connection);
+		return new peer_prove_identity(local_peer, foreign_peer, connection);
 	} else if (first_line == "VERIFY IDENTITY") {
-		return new peer_hello(local_peer, foreign_peer, connection);
+		return new peer_verify_identity(local_peer, foreign_peer, connection);
 	}
 	return nullptr;
 }
@@ -68,13 +68,9 @@ void peer_hello::feed(const std::string &line, int &type, size_t &expected_size)
 
 			type = DDSN_PEER_MESSAGE_TYPE_END;
 		} else {
-			if (line.length() == 64) {
-				public_key_ += line + "\n";
+			public_key_ += line + "\n";
 
-				type = DDSN_PEER_MESSAGE_TYPE_STRING;
-			} else {
-				type = DDSN_PEER_MESSAGE_TYPE_ERROR;
-			}
+			type = DDSN_PEER_MESSAGE_TYPE_STRING;
 		}
 	}
 }
@@ -82,6 +78,11 @@ void peer_hello::feed(const std::string &line, int &type, size_t &expected_size)
 void peer_hello::feed(const char *data, size_t size, int &type, size_t &expected_size) {
 	if (size == 32) {
 		peer_id foreign_id((unsigned char *)data);
+
+		for (int i = 0; i < 32; i++) {
+			cout << foreign_id.id()[i] << " ";
+		}
+		cout << endl;
 
 		cout << "PEER#" << connection_->id() << " claims id " << foreign_id.short_string() << endl;
 
@@ -99,6 +100,11 @@ void peer_hello::send() {
 
 	connection_->send("HELLO\n");
 	connection_->send((char *)local_peer_.id().id(), 32);
+
+	for (int i = 0; i < 32; i++) {
+		cout << (int)local_peer_.id().id()[i] << " ";
+	}
+	cout << endl;
 
 	// send public key in pem format
 

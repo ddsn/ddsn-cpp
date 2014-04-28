@@ -16,10 +16,14 @@ int api_connection::connections = 0;
 api_connection::api_connection(local_peer &local_peer, io_service &io_service) :
 	local_peer_(local_peer), socket_(io_service), message_(nullptr) {
 	id_ = connections++;
+
+	rcv_buffer_ = new char[32];
+	rcv_buffer_size_ = 32;
 }
 
 api_connection::~api_connection() {
 	std::cout << "API#" << id_ << " DELETED" << std::endl;
+	delete[] rcv_buffer_;
 }
 
 tcp::socket &api_connection::socket() {
@@ -113,7 +117,13 @@ void api_connection::handle_read(const boost::system::error_code& error, std::si
 				boost::asio::placeholders::bytes_transferred));
 		}
 		else if (read_type_ == DDSN_API_MESSAGE_TYPE_BYTES) {
-			boost::asio::async_read(socket_, rcv_streambuf_, boost::asio::transfer_exactly(read_bytes_), boost::bind(&api_connection::handle_read, shared_from_this(),
+			if (rcv_buffer_size_ < read_bytes_) {
+				delete[] rcv_buffer_;
+				rcv_buffer_ = new char[read_bytes_];
+				rcv_buffer_size_ = read_bytes_;
+			}
+
+			boost::asio::async_read(socket_, boost::asio::buffer(rcv_buffer_, read_bytes_), boost::bind(&api_connection::handle_read, shared_from_this(),
 				boost::asio::placeholders::error,
 				boost::asio::placeholders::bytes_transferred));
 		}

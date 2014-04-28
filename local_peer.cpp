@@ -159,7 +159,11 @@ void local_peer::connect(string host, int port) {
 
 		peer_hello(*this, nullptr, new_connection).send();
 
+		cout << "SENT HELLO..." << endl;
+
 		new_connection->start();
+
+		cout << "STARTED CONNECTION..." << endl;
 	} catch (...) {
 		cout << "Could not connect to " << host << ":" << port << endl;
 	}
