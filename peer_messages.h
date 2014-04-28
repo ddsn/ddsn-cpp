@@ -26,9 +26,6 @@ public:
 
 	// provides this message with a byte array
 	virtual void feed(const char *data, size_t size, int &type, size_t &expected_size) = 0;
-
-	// send a message
-	virtual void send() = 0;
 protected:
 	foreign_peer *foreign_peer_;
 	local_peer &local_peer_;
@@ -61,6 +58,7 @@ public:
 
 	virtual void send();
 private:
+	std::string message_;
 };
 
 class peer_verify_identity : public peer_message {
@@ -72,8 +70,9 @@ public:
 	virtual void feed(const std::string &line, int &type, size_t &expected_size);
 	virtual void feed(const char *data, size_t size, int &type, size_t &expected_size);
 
-	virtual void send();
+	virtual void send(std::string message);
 private:
+	int signature_length_;
 };
 
 }

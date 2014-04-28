@@ -43,7 +43,7 @@ void foreign_peer::set_public_key_str(const std::string &public_key) {
 
 	BIO_write(pub, public_key_str_.c_str(), public_key_str_.length());
 
-	PEM_read_bio_RSAPrivateKey(pub, &public_key_, NULL, NULL);
+	PEM_read_bio_RSAPublicKey(pub, &public_key_, NULL, NULL);
 }
 
 void foreign_peer::set_identity_verified(bool identity_verified) {

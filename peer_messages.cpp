@@ -45,8 +45,6 @@ void peer_hello::first_action(int &type, size_t &expected_size) {
 }
 
 void peer_hello::feed(const std::string &line, int &type, size_t &expected_size) {
-	cout << line << endl;
-
 	if (state_ == 0) {
 		if (line != "-----BEGIN RSA PUBLIC KEY-----") {
 			public_key_ += line + "\n";
@@ -54,15 +52,19 @@ void peer_hello::feed(const std::string &line, int &type, size_t &expected_size)
 			type = DDSN_PEER_MESSAGE_TYPE_ERROR;
 			return;
 		} else {
+			public_key_ = "-----BEGIN RSA PUBLIC KEY-----\n";
+
 			state_ = 1;
 			type = DDSN_PEER_MESSAGE_TYPE_STRING;
 		}
 	} else if (state_ == 1) {
 		if (line == "-----END RSA PUBLIC KEY-----") {
-			foreign_peer_->set_public_key_str(public_key_);
-			foreign_peer_->set_verification_number(12345); // TODO: make it random
+			public_key_ += "-----END RSA PUBLIC KEY-----\n";
 
-			cout << "PEER#" << connection_->id() << " sent public key pem (" << public_key_.length() << " bytes)" << endl;
+			foreign_peer_->set_public_key_str(public_key_);
+			foreign_peer_->set_verification_number(rand()); // TODO: make it random
+
+			cout << "PEER#" << connection_->id() << " random number: " << foreign_peer_->verification_number() << endl;
 
 			peer_prove_identity(local_peer_, foreign_peer_, connection_).send();
 
@@ -79,13 +81,6 @@ void peer_hello::feed(const char *data, size_t size, int &type, size_t &expected
 	if (size == 32) {
 		peer_id foreign_id((unsigned char *)data);
 
-		for (int i = 0; i < 32; i++) {
-			cout << foreign_id.id()[i] << " ";
-		}
-		cout << endl;
-
-		cout << "PEER#" << connection_->id() << " claims id " << foreign_id.short_string() << endl;
-
 		foreign_peer_ = new foreign_peer();
 		foreign_peer_->set_id(foreign_id);
 
@@ -96,32 +91,23 @@ void peer_hello::feed(const char *data, size_t size, int &type, size_t &expected
 }
 
 void peer_hello::send() {
-	cout << "Sending hello to PEER#" << connection_->id() << endl;
-
 	connection_->send("HELLO\n");
 	connection_->send((char *)local_peer_.id().id(), 32);
 
-	for (int i = 0; i < 32; i++) {
-		cout << (int)local_peer_.id().id()[i] << " ";
-	}
-	cout << endl;
-
 	// send public key in pem format
 
-	BIO *pri = BIO_new(BIO_s_mem());
+	BIO *pub = BIO_new(BIO_s_mem());
 
-	PEM_write_bio_RSAPublicKey(pri, local_peer_.keypair());
+	PEM_write_bio_RSAPublicKey(pub, local_peer_.keypair());
 
-	size_t pri_len = BIO_pending(pri);
+	size_t pub_len = BIO_pending(pub);
 
-	char *pri_key = new char[pri_len];
+	char *pub_key = new char[pub_len];
 
-	BIO_read(pri, pri_key, pri_len);
+	BIO_read(pub, pub_key, pub_len);
 
 	// actually a string, but we can use byte verion of send
-	connection_->send(pri_key, pri_len);
-
-	cout << "Sent hello to PEER#" << connection_->id() << endl;
+	connection_->send(pub_key, pub_len);
 }
 
 // PROVE IDENTITY
@@ -140,7 +126,15 @@ void peer_prove_identity::first_action(int &type, size_t &expected_size) {
 }
 
 void peer_prove_identity::feed(const std::string &line, int &type, size_t &expected_size) {
+	if (line == "") {
+		peer_verify_identity(local_peer_, foreign_peer_, connection_).send(message_);
 
+		type = DDSN_PEER_MESSAGE_TYPE_END;
+	} else {
+		message_ += line;
+
+		type = DDSN_PEER_MESSAGE_TYPE_STRING;
+	}
 }
 
 void peer_prove_identity::feed(const char *data, size_t size, int &type, size_t &expected_size) {
@@ -149,10 +143,8 @@ void peer_prove_identity::feed(const char *data, size_t size, int &type, size_t 
 void peer_prove_identity::send() {
 	string sign_message = "Sign this random number: " + boost::lexical_cast<std::string>(foreign_peer_->verification_number());
 
-	cout << "PEER#" << connection_->id() << " asked to sign '" << sign_message << "'" << endl;
-
 	connection_->send("PROVE IDENTITY\n" +
-		sign_message + "\n");
+		sign_message + "\n\n");
 }
 
 // VERIFY IDENTITY
@@ -167,13 +159,58 @@ peer_verify_identity::~peer_verify_identity() {
 }
 
 void peer_verify_identity::first_action(int &type, size_t &expected_size) {
+	type = DDSN_PEER_MESSAGE_TYPE_STRING;
 }
 
 void peer_verify_identity::feed(const std::string &line, int &type, size_t &expected_size) {
+	if (line == "") {
+		type = DDSN_PEER_MESSAGE_TYPE_BYTES;
+		expected_size = signature_length_;
+	} else {
+		int colon_pos = line.find(": ");
+		string field_name = line.substr(0, colon_pos);
+		string field_value = line.substr(colon_pos + 2);
+
+		if (field_name == "Signature-length") {
+			signature_length_ = stoi(field_value);
+		}
+	}
 }
 
 void peer_verify_identity::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+	if (size == signature_length_) {
+		string sign_message = "Sign this random number: " + boost::lexical_cast<std::string>(foreign_peer_->verification_number());
+
+		int ret = RSA_verify(NID_sha1, (unsigned char *)sign_message.c_str(), sign_message.length(),
+			(unsigned char *)data, signature_length_, foreign_peer_->public_key());
+
+		if (ret == 1) { // successful
+			foreign_peer_->set_identity_verified(true);
+
+			cout << "PEER#" << connection_->id() << " peer " << foreign_peer_->id().short_string() << " is now verified" << endl;
+
+			if (!connection_->introduced()) {
+				peer_hello(local_peer_, foreign_peer_, connection_).send();
+				connection_->set_introduced(true);
+			}
+
+			type = DDSN_PEER_MESSAGE_TYPE_END;
+		} else {
+			cout << "PEER#" << connection_->id() << " peer claiming to be " << foreign_peer_->id().short_string() << " gave an invalid signature" << endl;
+			type = DDSN_PEER_MESSAGE_TYPE_ERROR;
+		}
+	}
 }
 
-void peer_verify_identity::send() {
+void peer_verify_identity::send(string message) {
+	unsigned char *sigret = new unsigned char[RSA_size(local_peer_.keypair())];
+	unsigned int siglen;
+
+	RSA_sign(NID_sha1, (unsigned char *)message.c_str(), message.length(), sigret, &siglen, local_peer_.keypair());
+
+	connection_->send("VERIFY IDENTITY\n"
+		"Signature-length: " + boost::lexical_cast<string>(siglen) + "\n\n");
+	connection_->send((char *)sigret, siglen);
+
+	delete[] sigret;
 }

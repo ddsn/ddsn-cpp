@@ -57,7 +57,7 @@ int block::load_from_filesystem() {
 	ifstream file("blocks/" + code_.string('_'), ios::in | ios::binary | ios::ate);
 
 	if (file.is_open()) {
-		size_t file_size = file.tellg();
+		size_t file_size = (size_t)file.tellg();
 
 		if (data_ != nullptr) {
 			delete data_;

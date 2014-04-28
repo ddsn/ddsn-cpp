@@ -154,12 +154,12 @@ bool code::operator==(const code &code) const {
 		return false;
 	}
 	size_t size = layers_ / 8 + 1;
-	for (int i = 0; i < size - 1; i++) {
+	for (unsigned int i = 0; i < size - 1; i++) {
 		if (code.code_[i] != code_[i]) {
 			return false;
 		}
 	}
-	for (int i = (size - 1) * 8; i < layers_; i++) {
+	for (unsigned int i = (size - 1) * 8; i < layers_; i++) {
 		if (code.layer_code(i) != layer_code(i)) {
 			return false;
 		}

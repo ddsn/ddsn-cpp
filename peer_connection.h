@@ -22,7 +22,10 @@ public:
 	peer_connection(local_peer &local_peer, boost::asio::io_service& io_service);
 	~peer_connection();
 
+	bool introduced() const;
+
 	void set_foreign_peer(foreign_peer *foreign_peer);
+	void set_introduced(bool introduced);
 
 	boost::asio::ip::tcp::socket& socket();
 	int id();
@@ -50,6 +53,8 @@ private:
 	size_t read_bytes_;
 
 	int id_;
+
+	bool introduced_;
 };
 
 }
