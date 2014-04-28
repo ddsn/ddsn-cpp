@@ -14,6 +14,8 @@ api_message *api_message::create_message(local_peer &local_peer, api_connection 
 		return new api_store_file(local_peer, connection);
 	} else if (first_line == "LOAD FILE") {
 		return new api_load_file(local_peer, connection);
+	} else if (first_line == "CONNECT PEER") {
+		return new api_connect_peer(local_peer, connection);
 	}
 
 	return nullptr;
@@ -194,4 +196,41 @@ void api_load_file::feed(const string &line, int &type, size_t &expected_size) {
 
 void api_load_file::feed(const char *data, size_t size, int &type, size_t &expected_size) {
 	type = DDSN_API_MESSAGE_TYPE_ERROR;
+}
+
+// CONNECT PEER
+
+api_connect_peer::api_connect_peer(local_peer &local_peer, api_connection &connection) :
+api_message(local_peer, connection) {
+
+}
+
+api_connect_peer::~api_connect_peer() {
+
+}
+
+void api_connect_peer::first_action(int &type, size_t &expected_size) {
+	type = DDSN_API_MESSAGE_TYPE_STRING;
+}
+
+void api_connect_peer::feed(const string &line, int &type, size_t &expected_size) {
+
+	if (line == "") {
+		local_peer_.connect(host_, port_);
+
+		type = DDSN_API_MESSAGE_TYPE_END;
+	} else {
+		int colon_pos = line.find(": ");
+		string field_name = line.substr(0, colon_pos);
+		string field_value = line.substr(colon_pos + 2);
+
+		if (field_name == "Host") {
+			host_ = field_value;
+		} else if (field_name == "Port") {
+			port_ = stoi(field_value);
+		}
+	}
+}
+
+void api_connect_peer::feed(const char *data, size_t size, int &type, size_t &expected_size) {
 }

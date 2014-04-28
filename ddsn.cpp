@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
 
 	boost::asio::io_service io_service;
 
-	local_peer my_peer;
+	local_peer my_peer(io_service);
 
 	peer_server peer_server(my_peer, io_service);
 	api_server api_server(my_peer, io_service);

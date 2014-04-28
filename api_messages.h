@@ -71,6 +71,19 @@ private:
 	code code_;
 };
 
+class api_connect_peer : public api_message {
+public:
+	api_connect_peer(local_peer &local_peer, api_connection &connection);
+	~api_connect_peer();
+
+	void first_action(int &type, size_t &expected_size);
+	void feed(const std::string &line, int &type, size_t &expected_size);
+	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+private:
+	std::string host_;
+	int port_;
+};
+
 }
 
 #endif

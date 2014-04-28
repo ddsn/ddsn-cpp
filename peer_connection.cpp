@@ -1,4 +1,5 @@
 #include "peer_connection.h"
+#include "peer_messages.h"
 
 #include "definitions.h"
 
@@ -12,7 +13,7 @@ using boost::asio::ip::tcp;
 int peer_connection::connections = 0;
 
 peer_connection::peer_connection(local_peer &local_peer, io_service &io_service) :
-local_peer_(local_peer), socket_(io_service), message_(nullptr) {
+	local_peer_(local_peer), socket_(io_service), message_(nullptr) {
 	id_ = connections++;
 }
 
@@ -46,6 +47,8 @@ void peer_connection::send(const string &string) {
 
 	ostream << string;
 
+	cout << "PEER#" << id_ << " wrote " << string << endl;
+
 	boost::asio::async_write(socket_, *snd_streambuf, boost::bind(&peer_connection::handle_write, shared_from_this(),
 		snd_streambuf,
 		boost::asio::placeholders::error,
@@ -58,21 +61,27 @@ void peer_connection::send(const char *bytes, size_t size) {
 
 	ostream.write(bytes, size);
 
-	boost::asio::async_write(socket_, *snd_streambuf, boost::bind(&peer_connection::handle_write, shared_from_this(),
+	cout << "PEER#" << id_ << " wrote " << size << " bytes" << endl;
+
+	boost::asio::async_write(socket_, *snd_streambuf, boost::asio::transfer_exactly(size), boost::bind(&peer_connection::handle_write, shared_from_this(),
 		snd_streambuf,
 		boost::asio::placeholders::error,
 		boost::asio::placeholders::bytes_transferred));
 }
 
 void peer_connection::handle_read(const boost::system::error_code& error, size_t bytes_transferred) {
+	cout << "read..." << endl;
+
 	if (!error && bytes_transferred) {
+		cout << "PEER#" << id_ << " read something" << endl;
+
 		istream istream(&rcv_streambuf_);
 
 		if (message_ == nullptr) {
 			string string;
 			getline(istream, string);
 
-			message_ = peer_message::create_message(local_peer_, foreign_peer_, *this, string);
+			message_ = peer_message::create_message(local_peer_, foreign_peer_, shared_from_this(), string);
 
 			if (message_ == nullptr) {
 				close();
@@ -110,12 +119,16 @@ void peer_connection::handle_read(const boost::system::error_code& error, size_t
 		}
 
 		if (read_type_ == DDSN_PEER_MESSAGE_TYPE_STRING) {
+			cout << "PEER#" << id_ << " read until lf" << endl;
+
 			boost::asio::async_read_until(socket_, rcv_streambuf_, "\n", boost::bind(&peer_connection::handle_read, shared_from_this(),
 				boost::asio::placeholders::error,
 				boost::asio::placeholders::bytes_transferred));
 		}
 		else if (read_type_ == DDSN_PEER_MESSAGE_TYPE_BYTES) {
-			boost::asio::async_read(socket_, rcv_streambuf_, boost::asio::transfer_exactly(read_bytes_), boost::bind(&peer_connection::handle_read, shared_from_this(),
+			cout << "PEER#" << id_ << " read " << read_bytes_ << " bytes" << endl;
+
+			boost::asio::async_read(socket_, rcv_streambuf_, boost::bind(&peer_connection::handle_read, shared_from_this(),
 				boost::asio::placeholders::error,
 				boost::asio::placeholders::bytes_transferred));
 		}
@@ -127,6 +140,7 @@ void peer_connection::handle_read(const boost::system::error_code& error, size_t
 
 void peer_connection::handle_write(boost::asio::streambuf *snd_streambuf, const boost::system::error_code& error, size_t bytes_transferred) {
 	delete snd_streambuf;
+	cout << "PEER#" << id_ << " write completed (" << bytes_transferred << ")" << endl;
 }
 
 void peer_connection::close() {

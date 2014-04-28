@@ -14,7 +14,7 @@ using boost::asio::ip::tcp;
 int api_connection::connections = 0;
 
 api_connection::api_connection(local_peer &local_peer, io_service &io_service) :
-local_peer_(local_peer), socket_(io_service), message_(nullptr) {
+	local_peer_(local_peer), socket_(io_service), message_(nullptr) {
 	id_ = connections++;
 }
 

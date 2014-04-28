@@ -3,9 +3,9 @@
 
 #include "local_peer.h"
 #include "foreign_peer.h"
-#include "peer_messages.h"
 
 #include <boost/asio.hpp>
+#include <memory>
 
 namespace ddsn {
 

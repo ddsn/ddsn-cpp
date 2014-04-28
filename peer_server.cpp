@@ -36,5 +36,7 @@ void peer_server::handle_accept(peer_connection::pointer new_connection, const b
 		new_connection->start();
 	}
 
+	cout << "PEER#" << new_connection->id() << " CONNECTED" << endl;
+
 	start_accept();
 }

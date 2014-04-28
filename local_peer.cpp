@@ -1,14 +1,18 @@
+#include "peer_connection.h"
 #include "local_peer.h"
+#include "peer_messages.h"
 
 #include <openssl/pem.h>
 #include <openssl/sha.h>
+#include <boost/lexical_cast.hpp>
 #include <fstream>
 #include <iostream>
 
 using namespace ddsn;
 using namespace std;
+using boost::asio::ip::tcp;
 
-local_peer::local_peer() : integrated_(false), blocks_(0), keypair_(nullptr) {
+local_peer::local_peer(boost::asio::io_service &io_service) : io_service_(io_service), integrated_(false), blocks_(0), keypair_(nullptr) {
 
 }
 
@@ -46,7 +50,7 @@ int local_peer::load_peer_key() {
 	ifstream pri_file("keys/local.pem", ios::in | ios::binary | ios::ate);
 
 	if (pri_file.is_open()) {
-		size_t pri_len = pri_file.tellg();
+		size_t pri_len = (size_t)pri_file.tellg();
 
 		char *pri_key = new char[pri_len];
 
@@ -103,6 +107,10 @@ void local_peer::load_area_keys() {
 
 }
 
+RSA *local_peer::keypair() {
+	return keypair_;
+}
+
 void local_peer::store(const block &block) {
 	if (code_.contains(block.code())) {
 		cout << "save " << block.code().string('_') << " to filesystem" << endl;
@@ -133,4 +141,26 @@ void local_peer::create_id_from_key() {
 	delete[] buf;
 
 	id_.set_id(hash);
+}
+
+void local_peer::connect(string host, int port) {
+	cout << "Connecting to " << host << ":" << port << "..." << endl;
+
+	tcp::resolver resolver(io_service_);
+	tcp::resolver::query query(host, boost::lexical_cast<string>(port), boost::asio::ip::resolver_query_base::numeric_service);
+	tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
+
+	peer_connection::pointer new_connection(new peer_connection(*this, io_service_));
+
+	try {
+		boost::asio::connect(new_connection->socket(), endpoint_iterator);
+
+		cout << "PEER#" << new_connection->id() << " CONNECTED" << endl;
+
+		peer_hello(*this, nullptr, new_connection).send();
+
+		new_connection->start();
+	} catch (...) {
+		cout << "Could not connect to " << host << ":" << port << endl;
+	}
 }

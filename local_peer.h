@@ -6,6 +6,7 @@
 #include "peer_id.h"
 
 #include <openssl/rsa.h>
+#include <boost/asio.hpp>
 #include <unordered_map>
 
 namespace ddsn {
@@ -14,7 +15,7 @@ class foreign_peer;
 
 class local_peer {
 public:
-	local_peer();
+	local_peer(boost::asio::io_service &io_service);
 	~local_peer();
 
 	const peer_id &id() const;
@@ -25,20 +26,27 @@ public:
 	void set_integrated(bool integrated);
 	void set_capacity(int capactiy);
 
+	// keys
 	int load_peer_key();
 	int save_peer_key();
 	void generate_peer_key();
+	RSA *keypair();
 
 	void load_area_keys();
 
+	// blocks
 	void store(const block &block);
 	void load(block &block);
 	bool exists(const ddsn::code &code);
+
+	// peers
+	void connect(std::string host, int port);
 private:
 	void create_id_from_key();
 
 	peer_id id_;
 	ddsn::code code_;
+	boost::asio::io_service &io_service_;
 	bool integrated_;
 	int capacity_;
 	int blocks_;
