@@ -1,7 +1,8 @@
-#ifndef DDSN_LOCAL_PEER_H
-#define DDSN_LOCAL_PEER_H
+#ifndef DDSN_LOCAL_H
+#define DDSN_LOCAL_H
 
 #include "block.h"
+#include "code.h"
 #include "foreign_peer.h"
 #include "peer_id.h"
 
@@ -27,9 +28,9 @@ public:
 	void set_capacity(int capactiy);
 
 	// keys
-	int load_peer_key();
-	int save_peer_key();
-	void generate_peer_key();
+	int load_key();
+	int save_key();
+	void generate_key();
 	RSA *keypair();
 
 	void load_area_keys();

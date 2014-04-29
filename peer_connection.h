@@ -41,8 +41,8 @@ private:
 	void handle_read(const boost::system::error_code& error, std::size_t bytes_transferred);
 	void handle_write(boost::asio::streambuf *snd_streambuf, const boost::system::error_code& error, std::size_t bytes_transferred);
 
-	local_peer &local_peer_;
-	std::shared_ptr<foreign_peer> foreign_peer_;
+	local_peer &local_;
+	std::shared_ptr<foreign_peer> foreign_;
 
 	boost::asio::ip::tcp::socket socket_;
 

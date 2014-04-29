@@ -44,7 +44,7 @@ void local_peer::set_capacity(int capacity) {
 	capacity_ = capacity;
 }
 
-int local_peer::load_peer_key() {
+int local_peer::load_key() {
 	BIO *pri = BIO_new(BIO_s_mem());
 
 	ifstream pri_file("keys/local.pem", ios::in | ios::binary | ios::ate);
@@ -72,7 +72,7 @@ int local_peer::load_peer_key() {
 	return 0;
 }
 
-int local_peer::save_peer_key() {
+int local_peer::save_key() {
 	BIO *pri = BIO_new(BIO_s_mem());
 
 	PEM_write_bio_RSAPrivateKey(pri, keypair_, NULL, NULL, 0, NULL, NULL);
@@ -97,7 +97,7 @@ int local_peer::save_peer_key() {
 	return 0;
 }
 
-void local_peer::generate_peer_key() {
+void local_peer::generate_key() {
 	keypair_ = RSA_generate_key(2048, 3, NULL, NULL);
 
 	create_id_from_key();
@@ -148,11 +148,12 @@ void local_peer::connect(string host, int port) {
 
 	tcp::resolver resolver(io_service_);
 	tcp::resolver::query query(host, boost::lexical_cast<string>(port), boost::asio::ip::resolver_query_base::numeric_service);
-	tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
-
-	peer_connection::pointer new_connection(new peer_connection(*this, io_service_));
 
 	try {
+		tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
+
+		peer_connection::pointer new_connection(new peer_connection(*this, io_service_));
+
 		boost::asio::connect(new_connection->socket(), endpoint_iterator);
 
 		cout << "PEER#" << new_connection->id() << " CONNECTED" << endl;

@@ -56,10 +56,10 @@ int main(int argc, char *argv[]) {
 		my_peer.set_integrated(true);
 	}
 
-	if (my_peer.load_peer_key() != 0) {
+	if (my_peer.load_key() != 0) {
 		cout << "Generate peer key" << endl;
-		my_peer.generate_peer_key();
-		my_peer.save_peer_key();
+		my_peer.generate_key();
+		my_peer.save_key();
 	} else {
 		cout << "Loaded peer key" << endl;
 	}

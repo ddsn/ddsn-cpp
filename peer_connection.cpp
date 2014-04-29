@@ -1,7 +1,8 @@
 #include "peer_connection.h"
-#include "peer_messages.h"
 
+#include "peer_messages.h"
 #include "definitions.h"
+#include "utilities.h"
 
 #include <boost/bind.hpp>
 
@@ -13,11 +14,11 @@ using boost::asio::ip::tcp;
 int peer_connection::connections = 0;
 
 peer_connection::peer_connection(local_peer &local_peer, io_service &io_service) :
-local_peer_(local_peer), socket_(io_service), message_(nullptr), foreign_peer_(nullptr), introduced_(false), rcv_buffer_start_(0), rcv_buffer_end_(0) {
+local_(local_peer), socket_(io_service), message_(nullptr), foreign_(nullptr), introduced_(false), rcv_buffer_start_(0), rcv_buffer_end_(0) {
 	id_ = connections++;
 
-	rcv_buffer_ = new char[128];
-	rcv_buffer_size_ = 128;
+	rcv_buffer_ = new char[256];
+	rcv_buffer_size_ = 256;
 }
 
 peer_connection::~peer_connection() {
@@ -34,7 +35,7 @@ bool peer_connection::got_welcome() const {
 }
 
 void peer_connection::set_foreign_peer(std::shared_ptr<foreign_peer> foreign_peer) {
-	foreign_peer_ = foreign_peer;
+	foreign_ = foreign_peer;
 }
 
 void peer_connection::set_introduced(bool introduced) {
@@ -54,7 +55,7 @@ int peer_connection::id() {
 }
 
 void peer_connection::start() {
-	read_type_ = DDSN_PEER_MESSAGE_TYPE_STRING;
+	read_type_ = DDSN_MESSAGE_TYPE_STRING;
 
 	socket_.async_read_some(boost::asio::buffer(rcv_buffer_, rcv_buffer_size_), boost::bind(&peer_connection::handle_read, shared_from_this(),
 		boost::asio::placeholders::error,
@@ -102,7 +103,7 @@ void peer_connection::handle_read(const boost::system::error_code& error, size_t
 			comsumed = false;
 			buffer_data = rcv_buffer_end_ - rcv_buffer_start_;
 
-			if (message_ == nullptr || read_type_ == DDSN_PEER_MESSAGE_TYPE_STRING || read_type_ == DDSN_PEER_MESSAGE_TYPE_END) {
+			if (message_ == nullptr || read_type_ == DDSN_MESSAGE_TYPE_STRING || read_type_ == DDSN_MESSAGE_TYPE_END) {
 				int end_line = -1;
 
 				for (unsigned int i = rcv_buffer_start_; i < rcv_buffer_end_; i++) {
@@ -117,13 +118,13 @@ void peer_connection::handle_read(const boost::system::error_code& error, size_t
 					rcv_buffer_start_ = end_line + 1;
 
 					if (message_ == nullptr) {
-						message_ = peer_message::create_message(local_peer_, foreign_peer_, shared_from_this(), line);
+						message_ = peer_message::create_message(local_, foreign_, shared_from_this(), line);
 
 						if (message_ == nullptr) {
 							close();
 							return;
 						} else {
-							cout << "PEER#" << id_ << " message: " << " " << line << endl;
+							cout << "PEER#" << id_ << " message: " << line << endl;
 
 							message_->first_action(read_type_, read_bytes_);
 						}
@@ -144,37 +145,60 @@ void peer_connection::handle_read(const boost::system::error_code& error, size_t
 			}
 
 			if (comsumed) {
-				if (read_type_ == DDSN_PEER_MESSAGE_TYPE_CLOSE || read_type_ == DDSN_PEER_MESSAGE_TYPE_ERROR) {
+				if (read_type_ == DDSN_MESSAGE_TYPE_CLOSE || read_type_ == DDSN_MESSAGE_TYPE_ERROR) {
 					delete message_;
 					close();
 					return;
-				} else if (read_type_ == DDSN_PEER_MESSAGE_TYPE_END) {
+				} else if (read_type_ == DDSN_MESSAGE_TYPE_END) {
 					delete message_;
 					message_ = nullptr;
-					read_type_ = DDSN_PEER_MESSAGE_TYPE_STRING;
+					read_type_ = DDSN_MESSAGE_TYPE_STRING;
 				}
 			}
 
 		} while (comsumed);
 
+		if (read_type_ == DDSN_MESSAGE_TYPE_BYTES && read_bytes_ > DDSN_MESSAGE_CHUNK_MAX_SIZE) {
+			delete message_;
+			close();
+			return;
+		}
+
 		size_t buffer_size = rcv_buffer_size_ - rcv_buffer_end_;
 
-		if (buffer_size < 16 || (read_type_ == DDSN_PEER_MESSAGE_TYPE_BYTES && read_bytes_ > buffer_size)) {
-			if (read_type_ == DDSN_PEER_MESSAGE_TYPE_STRING || read_bytes_ <= rcv_buffer_size_) {
+		if (buffer_size < 16 || (read_type_ == DDSN_MESSAGE_TYPE_BYTES && read_bytes_ > buffer_size)) {
+			if (read_type_ == DDSN_MESSAGE_TYPE_STRING && rcv_buffer_start_ == 0 && buffer_size == 0) {
+				// double buffer space because string seems to be too long for current buffer
+				char *new_buffer = new char[rcv_buffer_size_ * 2];
+				memcpy(new_buffer, rcv_buffer_, rcv_buffer_size_);
+				delete[] rcv_buffer_;
+				rcv_buffer_ = new_buffer;
+
+				buffer_size = rcv_buffer_size_;
+				rcv_buffer_size_ = rcv_buffer_size_ * 2;
+
+				if (rcv_buffer_size_ > DDSN_MESSAGE_STRING_MAX_LENGTH) {
+					// string simply too long
+					close();
+					return;
+				}
+			} else if (read_type_ == DDSN_MESSAGE_TYPE_STRING || read_bytes_ <= rcv_buffer_size_) {
+				// shift to beginning to create space at the end (doesn't resize the buffer)
 				memmove(rcv_buffer_, rcv_buffer_ + rcv_buffer_start_, buffer_data);
 
 				rcv_buffer_start_ = 0;
 				rcv_buffer_end_ = buffer_data;
 				buffer_size = rcv_buffer_size_ - buffer_data;
 			} else {
-				char *new_buffer = new char[read_bytes_];
+				// enlarge buffer space for expected bytes to next power of 2
+				rcv_buffer_size_ = next_power(read_bytes_);
+				char *new_buffer = new char[rcv_buffer_size_];
 				memcpy(new_buffer, rcv_buffer_ + rcv_buffer_start_, buffer_data);
 				delete[] rcv_buffer_;
 				rcv_buffer_ = new_buffer;
 
 				rcv_buffer_start_ = 0;
 				rcv_buffer_end_ = buffer_data;
-				rcv_buffer_size_ = read_bytes_;
 				buffer_size = rcv_buffer_size_ - buffer_data;
 			}
 		}

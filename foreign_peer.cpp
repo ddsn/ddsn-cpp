@@ -4,7 +4,7 @@
 
 using namespace ddsn;
 
-foreign_peer::foreign_peer() : public_key_(nullptr) {
+foreign_peer::foreign_peer() : public_key_(nullptr), in_layer_(-1), out_layer_(-1) {
 
 }
 
@@ -14,10 +14,6 @@ foreign_peer::~foreign_peer() {
 
 const peer_id &foreign_peer::id() const {
 	return id_;
-}
-
-void foreign_peer::set_id(const peer_id &id) {
-	id_ = id;
 }
 
 const std::string &foreign_peer::public_key_str() const {
@@ -36,6 +32,22 @@ int foreign_peer::verification_number() const {
 	return verification_number_;
 }
 
+int foreign_peer::in_layer() const {
+	return in_layer_;
+}
+
+int foreign_peer::out_layer() const {
+	return out_layer_;
+}
+
+bool foreign_peer::queued() const {
+	return in_layer_ == -1 && out_layer_ == -1;
+}
+
+void foreign_peer::set_id(const peer_id &id) {
+	id_ = id;
+}
+
 void foreign_peer::set_public_key_str(const std::string &public_key) {
 	public_key_str_ = public_key;
 
@@ -52,4 +64,16 @@ void foreign_peer::set_identity_verified(bool identity_verified) {
 
 void foreign_peer::set_verification_number(int verification_number) {
 	verification_number_ = verification_number;
+}
+
+void foreign_peer::set_connection(peer_connection::pointer peer_connection) {
+	peer_connection_ = peer_connection;
+}
+
+void foreign_peer::set_in_layer(int layer) {
+	in_layer_ = layer;
+}
+
+void foreign_peer::set_out_layer(int layer) {
+	out_layer_ = layer;
 }

@@ -1,6 +1,7 @@
 #include "api_messages.h"
 
 #include "definitions.h"
+#include "utilities.h"
 
 #include <boost/lexical_cast.hpp>
 
@@ -40,17 +41,17 @@ api_ping::~api_ping() {
 }
 
 void api_ping::first_action(int &type, size_t &expected_size) {
-	type = DDSN_API_MESSAGE_TYPE_END;
+	type = DDSN_MESSAGE_TYPE_END;
 
 	connection_->send("PONG\n");
 }
 
 void api_ping::feed(const string &line, int &type, size_t &expected_size) {
-	type = DDSN_API_MESSAGE_TYPE_ERROR;
+	type = DDSN_MESSAGE_TYPE_ERROR;
 }
 
 void api_ping::feed(const char *data, size_t size, int &type, size_t &expected_size) {
-	type = DDSN_API_MESSAGE_TYPE_ERROR;
+	type = DDSN_MESSAGE_TYPE_ERROR;
 }
 
 // STORE FILE
@@ -65,7 +66,7 @@ api_store_file::~api_store_file() {
 }
 
 void api_store_file::first_action(int &type, size_t &expected_size) {
-	type = DDSN_API_MESSAGE_TYPE_STRING;
+	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
 void api_store_file::feed(const string &line, int &type, size_t &expected_size) {
@@ -75,9 +76,13 @@ void api_store_file::feed(const string &line, int &type, size_t &expected_size) 
 
 			data_ = new char[file_size_];
 
-			type = DDSN_API_MESSAGE_TYPE_STRING;
+			type = DDSN_MESSAGE_TYPE_STRING;
 		} else {
-			int colon_pos = line.find(": ");
+			size_t colon_pos = line.find(": ");
+			if (colon_pos == string::npos) {
+				type = DDSN_MESSAGE_TYPE_ERROR;
+				return;
+			}
 			string field_name = line.substr(0, colon_pos);
 			string field_value = line.substr(colon_pos + 2);
 
@@ -87,7 +92,7 @@ void api_store_file::feed(const string &line, int &type, size_t &expected_size) 
 				file_size_ = stoi(field_value);
 
 				if (file_size_ >= 8 * 1024 * 1024) {
-					type = DDSN_API_MESSAGE_TYPE_ERROR;
+					type = DDSN_MESSAGE_TYPE_ERROR;
 					return;
 				}
 			} else if (field_name == "Chunks") {
@@ -96,16 +101,20 @@ void api_store_file::feed(const string &line, int &type, size_t &expected_size) 
 				// unknown field
 			}
 
-			type = DDSN_API_MESSAGE_TYPE_STRING;
+			type = DDSN_MESSAGE_TYPE_STRING;
 		}
 	} else if (state_ == 1) { // Chunk information
 		if (line == "") {
 			chunk_++;
 
-			type = DDSN_API_MESSAGE_TYPE_BYTES;
+			type = DDSN_MESSAGE_TYPE_BYTES;
 			expected_size = chunk_size_;
 		} else {
-			int colon_pos = line.find(": ");
+			size_t colon_pos = line.find(": ");
+			if (colon_pos == string::npos) {
+				type = DDSN_MESSAGE_TYPE_ERROR;
+				return;
+			}
 			string field_name = line.substr(0, colon_pos);
 			string field_value = line.substr(colon_pos + 2);
 
@@ -115,20 +124,20 @@ void api_store_file::feed(const string &line, int &type, size_t &expected_size) 
 				// unknown field
 			}
 
-			type = DDSN_API_MESSAGE_TYPE_STRING;
+			type = DDSN_MESSAGE_TYPE_STRING;
 		}
 	}
 }
 
 void api_store_file::feed(const char *data, size_t size, int &type, size_t &expected_size) {
-	type = DDSN_API_MESSAGE_TYPE_STRING;
+	type = DDSN_MESSAGE_TYPE_STRING;
 
 	if (chunk_ < chunks_) {
 		memcpy(data_ + data_pointer_, data, size);
 
 		data_pointer_ += size;
 
-		type = DDSN_API_MESSAGE_TYPE_STRING;
+		type = DDSN_MESSAGE_TYPE_STRING;
 	} else {
 		memcpy(data_ + data_pointer_, data, size);
 
@@ -141,7 +150,7 @@ void api_store_file::feed(const char *data, size_t size, int &type, size_t &expe
 			"Block-code: " + block.code().string() + "\n"
 			"\n");
 
-		type = DDSN_API_MESSAGE_TYPE_END;
+		type = DDSN_MESSAGE_TYPE_END;
 	}
 }
 
@@ -157,7 +166,7 @@ api_load_file::~api_load_file() {
 }
 
 void api_load_file::first_action(int &type, size_t &expected_size) {
-	type = DDSN_API_MESSAGE_TYPE_STRING;
+	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
 void api_load_file::feed(const string &line, int &type, size_t &expected_size) {
@@ -177,24 +186,28 @@ void api_load_file::feed(const string &line, int &type, size_t &expected_size) {
 				"\n");
 		}
 
-		type = DDSN_API_MESSAGE_TYPE_END;
+		type = DDSN_MESSAGE_TYPE_END;
 	} else {
-		int colon_pos = line.find(": ");
+		size_t colon_pos = line.find(": ");
+		if (colon_pos == string::npos) {
+			type = DDSN_MESSAGE_TYPE_ERROR;
+			return;
+		}
 		string field_name = line.substr(0, colon_pos);
 		string field_value = line.substr(colon_pos + 2);
 
 		if (field_name == "File-name") {
 			code_ = code::from_name(field_value);
-			type = DDSN_API_MESSAGE_TYPE_STRING;
+			type = DDSN_MESSAGE_TYPE_STRING;
 		} else if (field_name == "Block-code") {
 			code_ = code(field_value);
-			type = DDSN_API_MESSAGE_TYPE_STRING;
+			type = DDSN_MESSAGE_TYPE_STRING;
 		}
 	}
 }
 
 void api_load_file::feed(const char *data, size_t size, int &type, size_t &expected_size) {
-	type = DDSN_API_MESSAGE_TYPE_ERROR;
+	type = DDSN_MESSAGE_TYPE_ERROR;
 }
 
 // CONNECT PEER
@@ -209,7 +222,7 @@ api_connect_peer::~api_connect_peer() {
 }
 
 void api_connect_peer::first_action(int &type, size_t &expected_size) {
-	type = DDSN_API_MESSAGE_TYPE_STRING;
+	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
 void api_connect_peer::feed(const string &line, int &type, size_t &expected_size) {
@@ -217,9 +230,13 @@ void api_connect_peer::feed(const string &line, int &type, size_t &expected_size
 	if (line == "") {
 		local_peer_.connect(host_, port_);
 
-		type = DDSN_API_MESSAGE_TYPE_END;
+		type = DDSN_MESSAGE_TYPE_END;
 	} else {
-		int colon_pos = line.find(": ");
+		size_t colon_pos = line.find(": ");
+		if (colon_pos == string::npos) {
+			type = DDSN_MESSAGE_TYPE_ERROR;
+			return;
+		}
 		string field_name = line.substr(0, colon_pos);
 		string field_value = line.substr(colon_pos + 2);
 

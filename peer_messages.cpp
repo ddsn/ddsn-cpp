@@ -1,4 +1,5 @@
 #include "peer_messages.h"
+
 #include "definitions.h"
 
 #include <openssl/rsa.h>
@@ -42,7 +43,7 @@ peer_hello::~peer_hello() {
 }
 
 void peer_hello::first_action(int &type, size_t &expected_size) {
-	type = DDSN_PEER_MESSAGE_TYPE_BYTES;
+	type = DDSN_MESSAGE_TYPE_BYTES;
 	expected_size = 32;
 }
 
@@ -51,13 +52,13 @@ void peer_hello::feed(const std::string &line, int &type, size_t &expected_size)
 		if (line != "-----BEGIN RSA PUBLIC KEY-----") {
 			public_key_ += line + "\n";
 
-			type = DDSN_PEER_MESSAGE_TYPE_ERROR;
+			type = DDSN_MESSAGE_TYPE_ERROR;
 			return;
 		} else {
 			public_key_ = "-----BEGIN RSA PUBLIC KEY-----\n";
 
 			state_ = 1;
-			type = DDSN_PEER_MESSAGE_TYPE_STRING;
+			type = DDSN_MESSAGE_TYPE_STRING;
 		}
 	} else if (state_ == 1) {
 		if (line == "-----END RSA PUBLIC KEY-----") {
@@ -70,11 +71,11 @@ void peer_hello::feed(const std::string &line, int &type, size_t &expected_size)
 
 			peer_prove_identity(local_peer_, foreign_peer_, connection_).send();
 
-			type = DDSN_PEER_MESSAGE_TYPE_END;
+			type = DDSN_MESSAGE_TYPE_END;
 		} else {
 			public_key_ += line + "\n";
 
-			type = DDSN_PEER_MESSAGE_TYPE_STRING;
+			type = DDSN_MESSAGE_TYPE_STRING;
 		}
 	}
 }
@@ -83,12 +84,18 @@ void peer_hello::feed(const char *data, size_t size, int &type, size_t &expected
 	if (size == 32) {
 		peer_id foreign_id((unsigned char *)data);
 
+		if (foreign_id == local_peer_.id()) {
+			// that's myself!
+			type = DDSN_MESSAGE_TYPE_ERROR;
+			return;
+		}
+
 		foreign_peer_ = std::shared_ptr<foreign_peer>(new foreign_peer());
 		foreign_peer_->set_id(foreign_id);
 
 		connection_->set_foreign_peer(foreign_peer_);
 
-		type = DDSN_PEER_MESSAGE_TYPE_STRING;
+		type = DDSN_MESSAGE_TYPE_STRING;
 	}
 }
 
@@ -124,18 +131,18 @@ peer_prove_identity::~peer_prove_identity() {
 }
 
 void peer_prove_identity::first_action(int &type, size_t &expected_size) {
-	type = DDSN_PEER_MESSAGE_TYPE_STRING;
+	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
 void peer_prove_identity::feed(const std::string &line, int &type, size_t &expected_size) {
 	if (line == "") {
 		peer_verify_identity(local_peer_, foreign_peer_, connection_).send(message_);
 
-		type = DDSN_PEER_MESSAGE_TYPE_END;
+		type = DDSN_MESSAGE_TYPE_END;
 	} else {
 		message_ += line;
 
-		type = DDSN_PEER_MESSAGE_TYPE_STRING;
+		type = DDSN_MESSAGE_TYPE_STRING;
 	}
 }
 
@@ -161,15 +168,19 @@ peer_verify_identity::~peer_verify_identity() {
 }
 
 void peer_verify_identity::first_action(int &type, size_t &expected_size) {
-	type = DDSN_PEER_MESSAGE_TYPE_STRING;
+	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
 void peer_verify_identity::feed(const std::string &line, int &type, size_t &expected_size) {
 	if (line == "") {
-		type = DDSN_PEER_MESSAGE_TYPE_BYTES;
+		type = DDSN_MESSAGE_TYPE_BYTES;
 		expected_size = signature_length_;
 	} else {
-		int colon_pos = line.find(": ");
+		size_t colon_pos = line.find(": ");
+		if (colon_pos == string::npos) {
+			type = DDSN_MESSAGE_TYPE_ERROR;
+			return;
+		}
 		string field_name = line.substr(0, colon_pos);
 		string field_value = line.substr(colon_pos + 2);
 
@@ -202,10 +213,10 @@ void peer_verify_identity::feed(const char *data, size_t size, int &type, size_t
 				connection_->set_introduced(true);
 			}
 
-			type = DDSN_PEER_MESSAGE_TYPE_END;
+			type = DDSN_MESSAGE_TYPE_END;
 		} else {
 			cout << "PEER#" << connection_->id() << " peer claiming to be " << foreign_peer_->id().short_string() << " gave an invalid signature" << endl;
-			type = DDSN_PEER_MESSAGE_TYPE_ERROR;
+			type = DDSN_MESSAGE_TYPE_ERROR;
 		}
 	}
 }
@@ -241,15 +252,15 @@ void peer_welcome::first_action(int &type, size_t &expected_size) {
 		local_peer_.add_foreign_peer(foreign_peer_);
 	}
 
-	type = DDSN_PEER_MESSAGE_TYPE_END;
+	type = DDSN_MESSAGE_TYPE_END;
 }
 
 void peer_welcome::feed(const std::string &line, int &type, size_t &expected_size) {
-	type = DDSN_PEER_MESSAGE_TYPE_ERROR;
+	type = DDSN_MESSAGE_TYPE_ERROR;
 }
 
 void peer_welcome::feed(const char *data, size_t size, int &type, size_t &expected_size) {
-	type = DDSN_PEER_MESSAGE_TYPE_ERROR;
+	type = DDSN_MESSAGE_TYPE_ERROR;
 }
 
 void peer_welcome::send() {
