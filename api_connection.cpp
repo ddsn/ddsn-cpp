@@ -169,16 +169,14 @@ void api_connection::handle_read(const boost::system::error_code& error, std::si
 					close();
 					return;
 				}
-			}
-			else if (read_type_ == DDSN_MESSAGE_TYPE_STRING || read_bytes_ <= rcv_buffer_size_) {
+			} else if (read_type_ == DDSN_MESSAGE_TYPE_STRING || read_bytes_ <= rcv_buffer_size_) {
 				// shift to beginning to create space at the end (doesn't resize the buffer)
 				memmove(rcv_buffer_, rcv_buffer_ + rcv_buffer_start_, buffer_data);
 
 				rcv_buffer_start_ = 0;
 				rcv_buffer_end_ = buffer_data;
 				buffer_size = rcv_buffer_size_ - buffer_data;
-			}
-			else {
+			} else {
 				// enlarge buffer space for expected bytes to next power of 2
 				rcv_buffer_size_ = next_power(read_bytes_);
 				char *new_buffer = new char[rcv_buffer_size_];

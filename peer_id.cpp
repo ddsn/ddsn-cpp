@@ -89,9 +89,9 @@ namespace ddsn {
 
 size_t hash<peer_id>::operator()(const peer_id &peer_id) const {
 	const unsigned char *id_ = peer_id.id();
-	int hash = 0;
+	unsigned int hash = 0;
 
-	for (int i = 0; i < 32; i++) {
+	for (int i = 0; i < 32; i += 4) {
 		hash ^= (unsigned int)id_[i] << 24 | (unsigned int)id_[i + 1] << 16 | (unsigned int)id_[i + 2] << 8 | (unsigned int)id_[i + 3];
 	}
 

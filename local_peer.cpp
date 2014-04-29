@@ -4,6 +4,7 @@
 
 #include <openssl/pem.h>
 #include <openssl/sha.h>
+#include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
 #include <fstream>
 #include <iostream>
@@ -43,6 +44,8 @@ void local_peer::set_integrated(bool integrated) {
 void local_peer::set_capacity(int capacity) {
 	capacity_ = capacity;
 }
+
+// keys
 
 int local_peer::load_key() {
 	BIO *pri = BIO_new(BIO_s_mem());
@@ -111,16 +114,33 @@ RSA *local_peer::keypair() {
 	return keypair_;
 }
 
+// blocks
+
 void local_peer::store(const block &block) {
 	if (code_.contains(block.code())) {
-		cout << "save " << block.code().string('_') << " to filesystem" << endl;
-		block.save_to_filesystem();
+		cout << "Save " << block.code().string('_') << " to filesystem" << endl;
+		if (block.save_to_filesystem() == 0) {
+			blocks_++;
+			stored_blocks_.insert(block.code());
+
+			if (blocks_ > capacity_) {
+				cout << "Capacity exhausted (" << blocks_ << " blocks stored, capacity: " << capacity_ << ")" << endl;
+
+				for (auto it = foreign_peers_.begin(); it != foreign_peers_.end(); ++it) {
+					if (it->second->queued()) {
+						// TODO
+						cout << "Well, I have a peer waiting to get part of the network...";
+						break;
+					}
+				}
+			}
+		}
 	}
 }
 
 void local_peer::load(block &block) {
 	if (code_.contains(block.code())) {
-		cout << "load " << block.code().string('_') << " from filesystem" << endl;
+		cout << "Load " << block.code().string('_') << " from filesystem" << endl;
 		block.load_from_filesystem();
 	}
 }

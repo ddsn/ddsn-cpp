@@ -34,6 +34,7 @@ public:
 	std::string string(char delim = ':') const;
 
 	friend std::ostream& operator<<(std::ostream& stream, const code& code);
+	friend std::hash<ddsn::code>;
 
 private:
 	int layers_;
@@ -41,6 +42,14 @@ private:
 };
 
 std::ostream& operator<<(std::ostream& stream, const code& code);
+
+}
+
+namespace std {
+
+template <> struct hash<ddsn::code> {
+	size_t operator()(const ddsn::code &code) const;
+};
 
 }
 

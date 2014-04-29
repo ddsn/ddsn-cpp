@@ -203,3 +203,42 @@ namespace ddsn {
 		return stream;
 	}
 }
+
+size_t std::hash<code>::operator()(const code &code) const {
+	unsigned char *code_ = code.code_;
+	unsigned int hash = 0;
+	size_t size = code.layers_ / 8;
+	int i = 0;
+	
+	for (; i + 4 < size; i += 4) {
+		hash ^= (unsigned int)code_[i] << 24 | (unsigned int)code_[i + 1] << 16 | (unsigned int)code_[i + 2] << 8 | (unsigned int)code_[i + 3];
+	}
+
+	for (; i < size; i++) {
+		int place = i % 4;
+		switch (place) {
+		case 0:
+			hash ^= (unsigned int)code_[i];
+			break;
+		case 1:
+			hash ^= (unsigned int)code_[i] << 8;
+			break;
+		case 2:
+			hash ^= (unsigned int)code_[i] << 16;
+			break;
+		case 3:
+			hash ^= (unsigned int)code_[i] << 24;
+			break;
+		}
+	}
+
+	unsigned int rest = 1;
+	for (unsigned int i = (size - 1) * 8; i < code.layers_; i++) {
+		rest <<= 1;
+		rest |= code.layer_code(i);
+	}
+
+	hash ^= rest;
+
+	return hash;
+}

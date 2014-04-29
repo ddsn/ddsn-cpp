@@ -9,6 +9,7 @@
 #include <openssl/rsa.h>
 #include <boost/asio.hpp>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace ddsn {
 
@@ -52,6 +53,7 @@ private:
 	bool integrated_;
 	int capacity_;
 	int blocks_;
+	std::unordered_set<ddsn::code> stored_blocks_;
 	RSA *keypair_;
 	std::unordered_map<peer_id, std::shared_ptr<foreign_peer>> foreign_peers_;
 };

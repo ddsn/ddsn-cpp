@@ -22,6 +22,7 @@ public:
 	std::string short_string() const;
 
 	friend std::ostream& operator<<(std::ostream& stream, const peer_id& peer_id);
+	friend std::hash<ddsn::peer_id>;
 
 private:
 	unsigned char id_[32];
