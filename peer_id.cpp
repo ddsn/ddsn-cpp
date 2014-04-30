@@ -42,16 +42,14 @@ string peer_id::string() const {
 		int digit = id_[i] >> 4;
 		if (digit <= 9) {
 			string += (char)('0' + digit);
-		}
-		else {
+		} else {
 			string += (char)('a' + digit - 10);
 		}
 
 		digit = id_[i] & 0xF;
 		if (digit <= 9) {
 			string += (char)('0' + digit);
-		}
-		else {
+		} else {
 			string += (char)('a' + digit - 10);
 		}
 	}
@@ -64,16 +62,14 @@ string peer_id::short_string() const {
 		int digit = id_[i] >> 4;
 		if (digit <= 9) {
 			string += (char)('0' + digit);
-		}
-		else {
+		} else {
 			string += (char)('a' + digit - 10);
 		}
 
 		digit = id_[i] & 0xF;
 		if (digit <= 9) {
 			string += (char)('0' + digit);
-		}
-		else {
+		} else {
 			string += (char)('a' + digit - 10);
 		}
 	}

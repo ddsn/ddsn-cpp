@@ -21,7 +21,8 @@ public:
 	local_peer(boost::asio::io_service &io_service, std::string host, int port);
 	~local_peer();
 
-	void set_api_server(api_server *api_server);
+	void set_api_server(ddsn::api_server *api_server);
+	ddsn::api_server *api_server() const;
 
 	const peer_id &id() const;
 	const ddsn::code &code() const;
@@ -45,6 +46,7 @@ public:
 	void store(const block &block);
 	void load(block &block);
 	bool exists(const ddsn::code &code);
+	int blocks() const;
 
 	// peers
 	void connect(std::string host, int port);
@@ -55,7 +57,7 @@ private:
 
 	peer_id id_;
 	boost::asio::io_service &io_service_;
-	api_server *api_server_;
+	ddsn::api_server *api_server_;
 	ddsn::code code_;
 	bool integrated_;
 	int capacity_;

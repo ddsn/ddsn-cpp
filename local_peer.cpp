@@ -24,8 +24,12 @@ local_peer::~local_peer() {
 
 }
 
-void local_peer::set_api_server(api_server *api_server) {
+void local_peer::set_api_server(ddsn::api_server *api_server) {
 	api_server_ = api_server;
+}
+
+api_server * local_peer::api_server() const {
+	return api_server_;
 }
 
 const peer_id &local_peer::id() const {
@@ -160,6 +164,10 @@ void local_peer::load(block &block) {
 	}
 }
 
+int local_peer::blocks() const {
+	return blocks_;
+}
+
 void local_peer::create_id_from_key() {
 	unsigned char *buf, *p;
 	int len = i2d_RSAPublicKey(keypair_, nullptr);
@@ -193,7 +201,7 @@ void local_peer::connect(string host, int port) {
 
 		cout << "PEER#" << new_connection->id() << " CONNECTED" << endl;
 
-		peer_hello(*this, nullptr, new_connection).send();
+		peer_hello(*this, new_connection).send();
 
 		new_connection->set_introduced(true);
 		new_connection->start();

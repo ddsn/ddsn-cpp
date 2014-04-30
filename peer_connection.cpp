@@ -14,7 +14,7 @@ using boost::asio::ip::tcp;
 int peer_connection::connections = 0;
 
 peer_connection::peer_connection(local_peer &local_peer, io_service &io_service) :
-local_(local_peer), socket_(io_service), message_(nullptr), foreign_(nullptr), introduced_(false), rcv_buffer_start_(0), rcv_buffer_end_(0) {
+local_peer_(local_peer), socket_(io_service), message_(nullptr), foreign_peer_(nullptr), introduced_(false), rcv_buffer_start_(0), rcv_buffer_end_(0) {
 	id_ = connections++;
 
 	rcv_buffer_ = new char[256];
@@ -34,8 +34,12 @@ bool peer_connection::got_welcome() const {
 	return got_welcome_;
 }
 
-void peer_connection::set_foreign_peer(std::shared_ptr<foreign_peer> foreign_peer) {
-	foreign_ = foreign_peer;
+std::shared_ptr<foreign_peer> peer_connection::foreign_peer() {
+	return foreign_peer_;
+}
+
+void peer_connection::set_foreign_peer(std::shared_ptr<ddsn::foreign_peer> foreign_peer) {
+	foreign_peer_ = foreign_peer;
 }
 
 void peer_connection::set_introduced(bool introduced) {
@@ -118,7 +122,7 @@ void peer_connection::handle_read(const boost::system::error_code& error, size_t
 					rcv_buffer_start_ = end_line + 1;
 
 					if (message_ == nullptr) {
-						message_ = peer_message::create_message(local_, foreign_, shared_from_this(), line);
+						message_ = peer_message::create_message(local_peer_, shared_from_this(), line);
 
 						if (message_ == nullptr) {
 							close();
@@ -214,6 +218,7 @@ void peer_connection::handle_write(boost::asio::streambuf *snd_streambuf, const 
 }
 
 void peer_connection::close() {
+	foreign_peer_->set_connection(nullptr);
 	cout << "PEER#" << id_ << " CLOSE" << endl;
 	socket_.close();
 }

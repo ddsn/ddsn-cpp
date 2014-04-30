@@ -22,10 +22,11 @@ public:
 	peer_connection(local_peer &local_peer, boost::asio::io_service& io_service);
 	~peer_connection();
 
+	std::shared_ptr<foreign_peer> foreign_peer();
 	bool introduced() const;
 	bool got_welcome() const;
 
-	void set_foreign_peer(std::shared_ptr<foreign_peer> foreign_peer);
+	void set_foreign_peer(std::shared_ptr<ddsn::foreign_peer> foreign_peer);
 	void set_introduced(bool introduced);
 	void set_got_welcome(bool got_welcome);
 
@@ -41,8 +42,8 @@ private:
 	void handle_read(const boost::system::error_code& error, std::size_t bytes_transferred);
 	void handle_write(boost::asio::streambuf *snd_streambuf, const boost::system::error_code& error, std::size_t bytes_transferred);
 
-	local_peer &local_;
-	std::shared_ptr<foreign_peer> foreign_;
+	local_peer &local_peer_;
+	std::shared_ptr<ddsn::foreign_peer> foreign_peer_;
 
 	boost::asio::ip::tcp::socket socket_;
 

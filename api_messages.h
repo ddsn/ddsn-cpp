@@ -32,7 +32,7 @@ protected:
 
 class api_out_message {
 public:
-	api_out_message(const local_peer &local_peer);
+	api_out_message();
 	virtual ~api_out_message();
 
 	// send the message
@@ -40,9 +40,6 @@ public:
 protected:
 	void send(api_connection::pointer connection, const std::string &string);
 	void send(api_connection::pointer connection, const char *bytes, size_t size);
-
-	const local_peer &local_peer_;
-	api_connection::pointer connection_;
 };
 
 /*
@@ -129,7 +126,7 @@ public:
 
 class api_out_hello : public api_out_message {
 public:
-	api_out_hello(local_peer &local_peer);
+	api_out_hello();
 	~api_out_hello();
 
 	void send(api_connection::pointer connection);
@@ -137,7 +134,7 @@ public:
 
 class api_out_ping : public api_out_message {
 public:
-	api_out_ping(local_peer &local_peer);
+	api_out_ping();
 	~api_out_ping();
 
 	void send(api_connection::pointer connection);
@@ -145,7 +142,7 @@ public:
 
 class api_out_store_file : public api_out_message {
 public:
-	api_out_store_file(local_peer &local_peer, const code &block_code);
+	api_out_store_file(const code &block_code);
 	~api_out_store_file();
 
 	void send(api_connection::pointer connection);
@@ -155,8 +152,8 @@ private:
 
 class api_out_load_file : public api_out_message {
 public:
-	api_out_load_file(local_peer &local_peer, const code &block_code);
-	api_out_load_file(local_peer &local_peer, const std::string &file_name, size_t file_size, const code &block_code, const char *data);
+	api_out_load_file(const code &block_code);
+	api_out_load_file(const std::string &file_name, size_t file_size, const code &block_code, const char *data);
 	~api_out_load_file();
 
 	void send(api_connection::pointer connection);
@@ -169,7 +166,7 @@ private:
 
 class api_out_connect_peer : public api_out_message {
 public:
-	api_out_connect_peer(local_peer &local_peer);
+	api_out_connect_peer();
 	~api_out_connect_peer();
 
 	void send(api_connection::pointer connection);
@@ -177,10 +174,12 @@ public:
 
 class api_out_peer_info : public api_out_message {
 public:
-	api_out_peer_info(local_peer &local_peer);
+	api_out_peer_info(const local_peer &local_peer);
 	~api_out_peer_info();
 
 	void send(api_connection::pointer connection);
+private:
+	const local_peer &local_peer_;
 };
 
 }

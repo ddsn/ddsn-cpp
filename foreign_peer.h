@@ -28,6 +28,7 @@ public:
 	bool queued() const;
 	const std::string &host() const;
 	int port() const;
+	bool connected() const;
 
 	void set_id(const peer_id &id);
 	void set_public_key_str(const std::string &public_key);

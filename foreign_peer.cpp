@@ -56,6 +56,9 @@ const string &foreign_peer::host() const {
 int foreign_peer::port() const {
 	return port_;
 }
+bool foreign_peer::connected() const {
+	return (bool)peer_connection_;
+}
 
 void foreign_peer::set_public_key_str(const std::string &public_key) {
 	public_key_str_ = public_key;

@@ -13,9 +13,9 @@ class peer_connection;
 
 class peer_message {
 public:
-	static peer_message *create_message(local_peer &local_peer, std::shared_ptr<foreign_peer> foreign_peer, peer_connection::pointer connection, const std::string &first_line);
+	static peer_message *create_message(local_peer &local_peer, peer_connection::pointer connection, const std::string &first_line);
 
-	peer_message(local_peer &local_peer, std::shared_ptr<foreign_peer> foreign_peer, peer_connection::pointer connection);
+	peer_message(local_peer &local_peer, peer_connection::pointer connection);
 	virtual ~peer_message();
 
 	// called immediately after receiving the first line
@@ -32,14 +32,13 @@ protected:
 	void send(const std::string &string);
 	void send(const char *bytes, size_t size);
 
-	std::shared_ptr<foreign_peer> foreign_peer_;
 	local_peer &local_peer_;
 	peer_connection::pointer connection_;
 };
 
 class peer_hello : public peer_message {
 public:
-	peer_hello(local_peer &local_peer, std::shared_ptr<foreign_peer> foreign_peer, peer_connection::pointer connection);
+	peer_hello(local_peer &local_peer, peer_connection::pointer connection);
 	~peer_hello();
 
 	void first_action(int &type, size_t &expected_size);
@@ -54,7 +53,7 @@ private:
 
 class peer_prove_identity : public peer_message {
 public:
-	peer_prove_identity(local_peer &local_peer, std::shared_ptr<foreign_peer> foreign_peer, peer_connection::pointer connection);
+	peer_prove_identity(local_peer &local_peer, peer_connection::pointer connection);
 	~peer_prove_identity();
 
 	void first_action(int &type, size_t &expected_size);
@@ -68,7 +67,7 @@ private:
 
 class peer_verify_identity : public peer_message {
 public:
-	peer_verify_identity(local_peer &local_peer, std::shared_ptr<foreign_peer> foreign_peer, peer_connection::pointer connection);
+	peer_verify_identity(local_peer &local_peer, peer_connection::pointer connection);
 	~peer_verify_identity();
 
 	void set_message(const std::string &message);
@@ -85,7 +84,7 @@ private:
 
 class peer_welcome : public peer_message {
 public:
-	peer_welcome(local_peer &local_peer, std::shared_ptr<foreign_peer> foreign_peer, peer_connection::pointer connection);
+	peer_welcome(local_peer &local_peer, peer_connection::pointer connection);
 	~peer_welcome();
 
 	void first_action(int &type, size_t &expected_size);

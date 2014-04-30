@@ -41,7 +41,7 @@ api_in_message::~api_in_message() {
 
 }
 
-api_out_message::api_out_message(const local_peer &local_peer) : local_peer_(local_peer) {
+api_out_message::api_out_message() {
 
 }
 
@@ -77,7 +77,7 @@ void api_in_hello::first_action(int &type, size_t &expected_size) {
 
 void api_in_hello::feed(const string &line, int &type, size_t &expected_size) {
 	if (line == connection_->server().password()) {
-		api_out_hello(local_peer_).send(connection_);
+		api_out_hello().send(connection_);
 
 		connection_->set_authenticated(true);
 		connection_->server().add_connection(connection_);
@@ -107,7 +107,7 @@ api_in_ping::~api_in_ping() {
 void api_in_ping::first_action(int &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_END;
 
-	api_out_ping(local_peer_).send(connection_);
+	api_out_ping().send(connection_);
 }
 
 void api_in_ping::feed(const string &line, int &type, size_t &expected_size) {
@@ -212,7 +212,7 @@ void api_in_store_file::feed(const char *data, size_t size, int &type, size_t &e
 
 		local_peer_.store(block);
 
-		api_out_store_file(local_peer_, block.code()).send(connection_);
+		api_out_store_file(block.code()).send(connection_);
 
 		type = DDSN_MESSAGE_TYPE_END;
 	}
@@ -239,9 +239,9 @@ void api_in_load_file::feed(const string &line, int &type, size_t &expected_size
 		local_peer_.load(block);
 
 		if (block.size() > 0) {
-			api_out_load_file(local_peer_, block.name(), block.size(), code_, block.data()).send(connection_);
+			api_out_load_file(block.name(), block.size(), code_, block.data()).send(connection_);
 		} else {
-			api_out_load_file(local_peer_, code_).send(connection_);
+			api_out_load_file(code_).send(connection_);
 		}
 
 		type = DDSN_MESSAGE_TYPE_END;
@@ -335,8 +335,7 @@ void api_in_peer_info::feed(const char *data, size_t size, int &type, size_t &ex
 
 // HELLO
 
-api_out_hello::api_out_hello(local_peer &local_peer) :
-api_out_message(local_peer) {
+api_out_hello::api_out_hello() {
 }
 
 api_out_hello::~api_out_hello() {
@@ -348,8 +347,7 @@ void api_out_hello::send(api_connection::pointer connection) {
 
 // PONG
 
-api_out_ping::api_out_ping(local_peer &local_peer) :
-api_out_message(local_peer) {
+api_out_ping::api_out_ping() {
 }
 
 api_out_ping::~api_out_ping() {
@@ -361,8 +359,8 @@ void api_out_ping::send(api_connection::pointer connection) {
 
 // STORE FILE
 
-api_out_store_file::api_out_store_file(local_peer &local_peer, const code &block_code) :
-api_out_message(local_peer), block_code_(block_code) {
+api_out_store_file::api_out_store_file(const code &block_code) :
+block_code_(block_code) {
 }
 
 api_out_store_file::~api_out_store_file() {
@@ -376,12 +374,12 @@ void api_out_store_file::send(api_connection::pointer connection) {
 
 // LOAD FILE
 
-api_out_load_file::api_out_load_file(local_peer &local_peer, const code &block_code) :
-api_out_message(local_peer), block_code_(block_code), data_(nullptr) {
+api_out_load_file::api_out_load_file(const code &block_code) :
+block_code_(block_code), data_(nullptr) {
 }
 
-api_out_load_file::api_out_load_file(local_peer &local_peer, const std::string &file_name, size_t file_size, const code &block_code, const char *data) :
-api_out_message(local_peer), file_name_(file_name), file_size_(file_size), block_code_(block_code), data_(data) {
+api_out_load_file::api_out_load_file(const std::string &file_name, size_t file_size, const code &block_code, const char *data) :
+file_name_(file_name), file_size_(file_size), block_code_(block_code), data_(data) {
 }
 
 api_out_load_file::~api_out_load_file() {
@@ -405,8 +403,8 @@ void api_out_load_file::send(api_connection::pointer connection) {
 
 // PEER INFO
 
-api_out_peer_info::api_out_peer_info(local_peer &local_peer) :
-api_out_message(local_peer) {
+api_out_peer_info::api_out_peer_info(const local_peer &local_peer) :
+local_peer_(local_peer) {
 }
 
 api_out_peer_info::~api_out_peer_info() {
@@ -414,8 +412,19 @@ api_out_peer_info::~api_out_peer_info() {
 
 void api_out_peer_info::send(api_connection::pointer connection) {
 	api_out_message::send(connection, "PEER INFO\n"
+		"Peer-id: " + local_peer_.id().string() + "\n"
 		"Peer-code: " + local_peer_.code().string() + "\n"
-		"Integrated: " + (local_peer_.integrated() ? "yes\n" : "no\n") +
-		"Peers: " + boost::lexical_cast<string>(local_peer_.foreign_peers().size()) + "\n"
-		"\n");
+		"Integrated: " + (local_peer_.integrated() ? "yes" : "no") + "\n"
+		"Blocks: " + boost::lexical_cast<string>(local_peer_.blocks()) + "\n"
+		"Capacity: " + boost::lexical_cast<string>(local_peer_.capacity()) + "\n"
+		"Peers: " + boost::lexical_cast<string>(local_peer_.foreign_peers().size()) + "\n\n");
+
+	for (auto it = local_peer_.foreign_peers().begin(); it != local_peer_.foreign_peers().end(); ++it) {
+		api_out_message::send(connection, "Peer-id: " + it->second->id().string() + "\n"
+			"Connected: " + (it->second->connected() ? "yes" : "no") + "\n"
+			"In-layer: " + boost::lexical_cast<string>(it->second->in_layer()) + "\n"
+			"Out-layer: " + boost::lexical_cast<string>(it->second->out_layer()) + "\n\n");
+	}
+
+	api_out_message::send(connection, "\n");
 }
