@@ -16,6 +16,7 @@ using boost::system::error_code;
 namespace ddsn {
 
 class api_message;
+class api_out_message;
 
 class api_server {
 public:
@@ -32,8 +33,7 @@ public:
 	void add_connection(api_connection::pointer connection);
 	void remove_connection(api_connection::pointer connection);
 
-	void broadcast(const std::string &string);
-	void broadcost(const char *bytes, size_t size);
+	void broadcast(api_out_message &message);
 private:
 	void handle_accept(api_connection::pointer new_connection, const error_code& error);
 

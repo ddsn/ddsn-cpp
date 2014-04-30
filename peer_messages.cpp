@@ -31,10 +31,18 @@ peer_message::~peer_message() {
 
 }
 
+void peer_message::send(const std::string &string) {
+	connection_->send(string);
+}
+
+void peer_message::send(const char *bytes, size_t size) {
+	connection_->send(bytes, size);
+}
+
 // HELLO
 
 peer_hello::peer_hello(local_peer &local_peer, std::shared_ptr<foreign_peer> foreign_peer, peer_connection::pointer connection) :
-	peer_message(local_peer, foreign_peer, connection), state_(0) {
+peer_message(local_peer, foreign_peer, connection), state_(0) {
 
 }
 
@@ -125,8 +133,8 @@ void peer_hello::feed(const char *data, size_t size, int &type, size_t &expected
 }
 
 void peer_hello::send() {
-	connection_->send("HELLO\n");
-	connection_->send((char *)local_peer_.id().id(), 32);
+	peer_message::send("HELLO\n");
+	peer_message::send((char *)local_peer_.id().id(), 32);
 
 	// send public key in pem format
 
@@ -141,16 +149,16 @@ void peer_hello::send() {
 	BIO_read(pub, pub_key, pub_len);
 
 	// actually a string, but we can use byte verion of send
-	connection_->send(pub_key, pub_len);
+	peer_message::send(pub_key, pub_len);
 
-	connection_->send("Host: " + local_peer_.host() + "\n"
+	peer_message::send("Host: " + local_peer_.host() + "\n"
 		"Port: " + boost::lexical_cast<string>(local_peer_.id()) + "\n\n");
 }
 
 // PROVE IDENTITY
 
 peer_prove_identity::peer_prove_identity(local_peer &local_peer, std::shared_ptr<foreign_peer> foreign_peer, peer_connection::pointer connection) :
-	peer_message(local_peer, foreign_peer, connection) {
+peer_message(local_peer, foreign_peer, connection) {
 
 }
 
@@ -164,7 +172,9 @@ void peer_prove_identity::first_action(int &type, size_t &expected_size) {
 
 void peer_prove_identity::feed(const std::string &line, int &type, size_t &expected_size) {
 	if (line == "") {
-		peer_verify_identity(local_peer_, foreign_peer_, connection_).send(message_);
+		peer_verify_identity message(local_peer_, foreign_peer_, connection_);
+		message.set_message(message_);
+		message.send();
 
 		type = DDSN_MESSAGE_TYPE_END;
 	} else {
@@ -180,19 +190,23 @@ void peer_prove_identity::feed(const char *data, size_t size, int &type, size_t 
 void peer_prove_identity::send() {
 	string sign_message = "Sign this random number: " + boost::lexical_cast<std::string>(foreign_peer_->verification_number());
 
-	connection_->send("PROVE IDENTITY\n" +
+	peer_message::send("PROVE IDENTITY\n" +
 		sign_message + "\n\n");
 }
 
 // VERIFY IDENTITY
 
 peer_verify_identity::peer_verify_identity(local_peer &local_peer, std::shared_ptr<foreign_peer> foreign_peer, peer_connection::pointer connection) :
-	peer_message(local_peer, foreign_peer, connection) {
+peer_message(local_peer, foreign_peer, connection) {
 
 }
 
 peer_verify_identity::~peer_verify_identity() {
 
+}
+
+void peer_verify_identity::set_message(const std::string &message) {
+	message_ = message;
 }
 
 void peer_verify_identity::first_action(int &type, size_t &expected_size) {
@@ -249,15 +263,15 @@ void peer_verify_identity::feed(const char *data, size_t size, int &type, size_t
 	}
 }
 
-void peer_verify_identity::send(string message) {
+void peer_verify_identity::send() {
 	unsigned char *sigret = new unsigned char[RSA_size(local_peer_.keypair())];
 	unsigned int siglen;
 
-	RSA_sign(NID_sha1, (unsigned char *)message.c_str(), message.length(), sigret, &siglen, local_peer_.keypair());
+	RSA_sign(NID_sha1, (unsigned char *)message_.c_str(), message_.length(), sigret, &siglen, local_peer_.keypair());
 
-	connection_->send("VERIFY IDENTITY\n"
+	peer_message::send("VERIFY IDENTITY\n"
 		"Signature-length: " + boost::lexical_cast<string>(siglen) + "\n\n");
-	connection_->send((char *)sigret, siglen);
+	peer_message::send((char *)sigret, siglen);
 
 	delete[] sigret;
 }
@@ -265,7 +279,7 @@ void peer_verify_identity::send(string message) {
 // WELCOME
 
 peer_welcome::peer_welcome(local_peer &local_peer, std::shared_ptr<foreign_peer> foreign_peer, peer_connection::pointer connection) :
-	peer_message(local_peer, foreign_peer, connection) {
+peer_message(local_peer, foreign_peer, connection) {
 
 }
 
@@ -292,5 +306,5 @@ void peer_welcome::feed(const char *data, size_t size, int &type, size_t &expect
 }
 
 void peer_welcome::send() {
-	connection_->send("WELCOME\n");
+	peer_message::send("WELCOME\n");
 }

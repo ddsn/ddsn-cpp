@@ -1,5 +1,7 @@
-#include "peer_connection.h"
 #include "local_peer.h"
+
+#include "api_server.h"
+#include "peer_connection.h"
 #include "peer_messages.h"
 
 #include <openssl/pem.h>
@@ -13,13 +15,17 @@ using namespace ddsn;
 using namespace std;
 using boost::asio::ip::tcp;
 
-local_peer::local_peer(boost::asio::io_service &io_service, string host, int port) : 
+local_peer::local_peer(io_service &io_service, string host, int port) :
 io_service_(io_service), integrated_(false), blocks_(0), keypair_(nullptr), host_(host), port_(port) {
 
 }
 
 local_peer::~local_peer() {
 
+}
+
+void local_peer::set_api_server(api_server *api_server) {
+	api_server_ = api_server;
 }
 
 const peer_id &local_peer::id() const {
@@ -199,4 +205,8 @@ void local_peer::connect(string host, int port) {
 void local_peer::add_foreign_peer(std::shared_ptr<foreign_peer> foreign_peer) {
 	foreign_peers_[foreign_peer->id()] = foreign_peer;
 	cout << "Added peer " << foreign_peer->id().short_string() << "; having " << foreign_peers_.size() << " peers now" << endl;
+}
+
+const std::unordered_map<peer_id, std::shared_ptr<foreign_peer>> &local_peer::foreign_peers() const {
+	return foreign_peers_;
 }

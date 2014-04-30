@@ -59,14 +59,8 @@ void api_server::remove_connection(api_connection::pointer connection) {
 	connections_.remove(connection);
 }
 
-void api_server::broadcast(const std::string &string) {
+void api_server::broadcast(api_out_message &api_out_message) {
 	for (auto it = connections_.begin(); it != connections_.end(); ++it) {
-		(*it)->send(string);
-	}
-}
-
-void api_server::broadcost(const char *bytes, size_t size) {
-	for (auto it = connections_.begin(); it != connections_.end(); ++it) {
-		(*it)->send(bytes, size);
+		api_out_message.send(*it);
 	}
 }

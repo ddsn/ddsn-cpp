@@ -46,6 +46,8 @@ int main(int argc, char *argv[]) {
 	peer_server peer_server(my_peer, io_service);
 	api_server api_server(my_peer, io_service, vm["api-password"].as<string>());
 
+	my_peer.set_api_server(&api_server);
+
 	peer_server.set_port(vm["peer-port"].as<int>());
 	api_server.set_port(vm["api-port"].as<int>());
 

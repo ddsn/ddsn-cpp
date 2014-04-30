@@ -11,8 +11,9 @@ using boost::system::error_code;
 
 namespace ddsn {
 
-class api_message;
+class api_in_message;
 class api_server;
+class api_out_message;
 
 class api_connection : public std::enable_shared_from_this<api_connection> {
 public:
@@ -31,11 +32,11 @@ public:
 
 	void start();
 
+	void close();
+private:
 	void send(const std::string &string);
 	void send(const char *bytes, size_t size);
 
-	void close();
-private:
 	void handle_read(const boost::system::error_code& error, std::size_t bytes_transferred);
 	void handle_write(boost::asio::streambuf *snd_streambuf, const boost::system::error_code& error, std::size_t bytes_transferred);
 
@@ -51,12 +52,14 @@ private:
 	size_t rcv_buffer_start_;
 	size_t rcv_buffer_end_;
 	size_t rcv_buffer_size_;
-	api_message *message_;
+	api_in_message *message_;
 
 	int read_type_;
 	size_t read_bytes_;
 
 	int id_;
+
+	friend class ddsn::api_out_message;
 };
 
 }

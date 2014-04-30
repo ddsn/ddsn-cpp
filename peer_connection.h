@@ -33,11 +33,11 @@ public:
 	int id();
 	void start();
 
+	void close();
+private:
 	void send(const std::string &string);
 	void send(const char *bytes, size_t size);
 
-	void close();
-private:
 	void handle_read(const boost::system::error_code& error, std::size_t bytes_transferred);
 	void handle_write(boost::asio::streambuf *snd_streambuf, const boost::system::error_code& error, std::size_t bytes_transferred);
 
@@ -60,6 +60,8 @@ private:
 
 	bool introduced_;
 	bool got_welcome_;
+
+	friend class ddsn::peer_message;
 };
 
 }

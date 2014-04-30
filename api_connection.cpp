@@ -114,7 +114,7 @@ void api_connection::handle_read(const boost::system::error_code& error, std::si
 					rcv_buffer_start_ = end_line + 1;
 
 					if (message_ == nullptr) {
-						message_ = api_message::create_message(local_peer_, shared_from_this(), line);
+						message_ = api_in_message::create_message(local_peer_, shared_from_this(), line);
 
 						if (message_ == nullptr) {
 							close();

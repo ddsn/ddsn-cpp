@@ -26,7 +26,12 @@ public:
 
 	// provides this message with a byte array
 	virtual void feed(const char *data, size_t size, int &type, size_t &expected_size) = 0;
+
+	virtual void send() = 0;
 protected:
+	void send(const std::string &string);
+	void send(const char *bytes, size_t size);
+
 	std::shared_ptr<foreign_peer> foreign_peer_;
 	local_peer &local_peer_;
 	peer_connection::pointer connection_;
@@ -37,11 +42,11 @@ public:
 	peer_hello(local_peer &local_peer, std::shared_ptr<foreign_peer> foreign_peer, peer_connection::pointer connection);
 	~peer_hello();
 
-	virtual void first_action(int &type, size_t &expected_size);
-	virtual void feed(const std::string &line, int &type, size_t &expected_size);
-	virtual void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void first_action(int &type, size_t &expected_size);
+	void feed(const std::string &line, int &type, size_t &expected_size);
+	void feed(const char *data, size_t size, int &type, size_t &expected_size);
 
-	virtual void send();
+	void send();
 private:
 	int state_;
 	std::string public_key_;
@@ -52,11 +57,11 @@ public:
 	peer_prove_identity(local_peer &local_peer, std::shared_ptr<foreign_peer> foreign_peer, peer_connection::pointer connection);
 	~peer_prove_identity();
 
-	virtual void first_action(int &type, size_t &expected_size);
-	virtual void feed(const std::string &line, int &type, size_t &expected_size);
-	virtual void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void first_action(int &type, size_t &expected_size);
+	void feed(const std::string &line, int &type, size_t &expected_size);
+	void feed(const char *data, size_t size, int &type, size_t &expected_size);
 
-	virtual void send();
+	void send();
 private:
 	std::string message_;
 };
@@ -66,13 +71,16 @@ public:
 	peer_verify_identity(local_peer &local_peer, std::shared_ptr<foreign_peer> foreign_peer, peer_connection::pointer connection);
 	~peer_verify_identity();
 
-	virtual void first_action(int &type, size_t &expected_size);
-	virtual void feed(const std::string &line, int &type, size_t &expected_size);
-	virtual void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void set_message(const std::string &message);
 
-	virtual void send(std::string message);
+	void first_action(int &type, size_t &expected_size);
+	void feed(const std::string &line, int &type, size_t &expected_size);
+	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+
+	void send();
 private:
 	int signature_length_;
+	std::string message_;
 };
 
 class peer_welcome : public peer_message {
@@ -80,11 +88,11 @@ public:
 	peer_welcome(local_peer &local_peer, std::shared_ptr<foreign_peer> foreign_peer, peer_connection::pointer connection);
 	~peer_welcome();
 
-	virtual void first_action(int &type, size_t &expected_size);
-	virtual void feed(const std::string &line, int &type, size_t &expected_size);
-	virtual void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void first_action(int &type, size_t &expected_size);
+	void feed(const std::string &line, int &type, size_t &expected_size);
+	void feed(const char *data, size_t size, int &type, size_t &expected_size);
 
-	virtual void send();
+	void send();
 };
 
 }

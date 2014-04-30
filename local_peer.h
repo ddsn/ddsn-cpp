@@ -13,12 +13,15 @@
 
 namespace ddsn {
 
+class api_server;
 class foreign_peer;
 
 class local_peer {
 public:
 	local_peer(boost::asio::io_service &io_service, std::string host, int port);
 	~local_peer();
+
+	void set_api_server(api_server *api_server);
 
 	const peer_id &id() const;
 	const ddsn::code &code() const;
@@ -46,12 +49,14 @@ public:
 	// peers
 	void connect(std::string host, int port);
 	void add_foreign_peer(std::shared_ptr<foreign_peer> foreign_peer);
+	const std::unordered_map<peer_id, std::shared_ptr<foreign_peer>> &foreign_peers() const;
 private:
 	void create_id_from_key();
 
 	peer_id id_;
-	ddsn::code code_;
 	boost::asio::io_service &io_service_;
+	api_server *api_server_;
+	ddsn::code code_;
 	bool integrated_;
 	int capacity_;
 	int blocks_;
