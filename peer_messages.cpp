@@ -106,7 +106,11 @@ void peer_hello::feed(const std::string &line, int &type, size_t &expected_size)
 			string field_value = line.substr(colon_pos + 2);
 
 			if (field_name == "Host") {
-				connection_->foreign_peer()->set_host(field_value);
+				if (field_value == "") {
+					connection_->foreign_peer()->set_host(boost::lexical_cast<std::string>(connection_->socket().remote_endpoint().address()));
+				} else {
+					connection_->foreign_peer()->set_host(field_value);
+				}
 			} else if (field_name == "Port") {
 				try {
 					connection_->foreign_peer()->set_port(stoi(field_value));

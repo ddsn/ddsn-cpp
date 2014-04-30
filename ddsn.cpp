@@ -17,7 +17,7 @@ int main(int argc, char *argv[]) {
 	desc.add_options()
 		("help", "produce help message")
 		("version", "print version")
-		("peer-host", po::value<string>()->default_value("localhost"), "set peer host")
+		("peer-host", po::value<string>()->default_value(""), "set peer host")
 		("peer-port", po::value<int>()->default_value(4494), "set peer port")
 		("api-port", po::value<int>()->default_value(4495), "set api port")
 		("api-password", po::value<string>()->default_value(""), "set api password")
