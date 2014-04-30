@@ -7,6 +7,7 @@
 
 #include <openssl/rsa.h>
 #include <memory>
+#include <string>
 
 namespace ddsn {
 
@@ -25,6 +26,8 @@ public:
 	int in_layer() const;
 	int out_layer() const;
 	bool queued() const;
+	const std::string &host() const;
+	int port() const;
 
 	void set_id(const peer_id &id);
 	void set_public_key_str(const std::string &public_key);
@@ -33,6 +36,8 @@ public:
 	void set_connection(std::shared_ptr<peer_connection> peer_connection);
 	void set_in_layer(int layer);
 	void set_out_layer(int layer);
+	void set_host(const std::string &host);
+	void set_port(int port);
 private:
 	peer_id id_;
 	std::shared_ptr<peer_connection> peer_connection_;
@@ -42,6 +47,8 @@ private:
 	int verification_number_;
 	int in_layer_;
 	int out_layer_;
+	std::string host_;
+	int port_;
 };
 
 }

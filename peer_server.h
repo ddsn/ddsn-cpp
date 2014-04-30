@@ -16,7 +16,7 @@ class peer_message;
 
 class peer_server {
 public:
-	peer_server(local_peer &local_peer, boost::asio::io_service &io_service, int port = 4494);
+	peer_server(local_peer &local_peer, boost::asio::io_service &io_service);
 	~peer_server();
 
 	void set_port(int port);

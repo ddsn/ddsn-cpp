@@ -17,13 +17,15 @@ class foreign_peer;
 
 class local_peer {
 public:
-	local_peer(boost::asio::io_service &io_service);
+	local_peer(boost::asio::io_service &io_service, std::string host, int port);
 	~local_peer();
 
 	const peer_id &id() const;
 	const ddsn::code &code() const;
 	bool integrated() const;
 	int capacity() const;
+	const std::string &host() const;
+	int port() const;
 
 	void set_integrated(bool integrated);
 	void set_capacity(int capactiy);
@@ -56,6 +58,8 @@ private:
 	std::unordered_set<ddsn::code> stored_blocks_;
 	RSA *keypair_;
 	std::unordered_map<peer_id, std::shared_ptr<foreign_peer>> foreign_peers_;
+	std::string host_;
+	int port_;
 };
 
 }

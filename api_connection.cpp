@@ -1,6 +1,7 @@
 #include "api_connection.h"
 
 #include "api_messages.h"
+#include "api_server.h"
 #include "definitions.h"
 #include "utilities.h"
 
@@ -16,8 +17,8 @@ using boost::asio::ip::tcp;
 
 int api_connection::connections = 0;
 
-api_connection::api_connection(local_peer &local_peer, io_service &io_service) :
-	local_peer_(local_peer), socket_(io_service), message_(nullptr), rcv_buffer_start_(0), rcv_buffer_end_(0) {
+api_connection::api_connection(api_server &api_server, local_peer &local_peer, io_service &io_service) :
+server_(api_server), local_peer_(local_peer), socket_(io_service), authenticated_(false), message_(nullptr), rcv_buffer_start_(0), rcv_buffer_end_(0) {
 	id_ = connections++;
 
 	rcv_buffer_ = new char[256];
@@ -33,8 +34,20 @@ tcp::socket &api_connection::socket() {
 	return socket_;
 }
 
+api_server &api_connection::server() {
+	return server_;
+}
+
 int api_connection::id() {
 	return id_;
+}
+
+bool api_connection::authenticated() {
+	return authenticated_;
+}
+
+void api_connection::set_authenticated(bool authenticated) {
+	authenticated_ = authenticated;
 }
 
 void api_connection::start() {
@@ -202,5 +215,6 @@ void api_connection::handle_write(boost::asio::streambuf *snd_streambuf, const b
 
 void api_connection::close() {
 	std::cout << "API#" << id_ << " CLOSE (on my behalf)" << std::endl;
+	server_.remove_connection(shared_from_this());
 	socket_.close();
 }

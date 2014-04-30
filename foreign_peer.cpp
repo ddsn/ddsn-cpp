@@ -3,8 +3,9 @@
 #include <openssl/pem.h>
 
 using namespace ddsn;
+using namespace std;
 
-foreign_peer::foreign_peer() : public_key_(nullptr), in_layer_(-1), out_layer_(-1) {
+foreign_peer::foreign_peer() : public_key_(nullptr), in_layer_(-1), out_layer_(-1), host_(""), port_(-1) {
 
 }
 
@@ -48,6 +49,14 @@ void foreign_peer::set_id(const peer_id &id) {
 	id_ = id;
 }
 
+const string &foreign_peer::host() const {
+	return host_;
+}
+
+int foreign_peer::port() const {
+	return port_;
+}
+
 void foreign_peer::set_public_key_str(const std::string &public_key) {
 	public_key_str_ = public_key;
 
@@ -76,4 +85,12 @@ void foreign_peer::set_in_layer(int layer) {
 
 void foreign_peer::set_out_layer(int layer) {
 	out_layer_ = layer;
+}
+
+void foreign_peer::set_host(const std::string &host) {
+	host_ = host;
+}
+
+void foreign_peer::set_port(int port) {
+	port_ = port;
 }

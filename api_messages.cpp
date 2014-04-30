@@ -1,5 +1,6 @@
 #include "api_messages.h"
 
+#include "api_server.h"
 #include "definitions.h"
 #include "utilities.h"
 
@@ -9,14 +10,23 @@ using namespace ddsn;
 using namespace std;
 
 api_message *api_message::create_message(local_peer &local_peer, api_connection::pointer connection, const string &first_line) {
-	if (first_line == "PING") {
-		return new api_ping(local_peer, connection);
-	} else if (first_line == "STORE FILE") {
-		return new api_store_file(local_peer, connection);
-	} else if (first_line == "LOAD FILE") {
-		return new api_load_file(local_peer, connection);
-	} else if (first_line == "CONNECT PEER") {
-		return new api_connect_peer(local_peer, connection);
+	if (first_line == "HELLO") {
+		return new api_hello(local_peer, connection);
+	}
+	
+	if (connection->authenticated()) {
+		if (first_line == "PING") {
+			return new api_ping(local_peer, connection);
+		} else if (first_line == "STORE FILE") {
+			return new api_store_file(local_peer, connection);
+		} else if (first_line == "LOAD FILE") {
+			return new api_load_file(local_peer, connection);
+		} else if (first_line == "CONNECT PEER") {
+			return new api_connect_peer(local_peer, connection);
+		}
+	} else {
+		connection->send("You are not authenticated, closing...\n");
+		return nullptr;
 	}
 
 	return nullptr;
@@ -29,6 +39,40 @@ api_message::api_message(local_peer &local_peer, api_connection::pointer connect
 api_message::~api_message() {
 
 }
+
+// HELLO
+
+api_hello::api_hello(local_peer &local_peer, api_connection::pointer connection) : api_message(local_peer, connection) {
+
+}
+
+api_hello::~api_hello() {
+
+}
+
+void api_hello::first_action(int &type, size_t &expected_size) {
+	type = DDSN_MESSAGE_TYPE_STRING;
+}
+
+void api_hello::feed(const string &line, int &type, size_t &expected_size) {
+	if (line == connection_->server().password()) {
+		connection_->set_authenticated(true);
+		connection_->send("HELLO\n");
+		connection_->server().add_connection(connection_);
+
+		type = DDSN_MESSAGE_TYPE_END;
+	} else {
+		connection_->send("Wrong password, closing...\n");
+
+		type = DDSN_MESSAGE_TYPE_ERROR;
+	}
+}
+
+void api_hello::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+	type = DDSN_MESSAGE_TYPE_ERROR;
+}
+
+
 
 // PING
 
@@ -57,12 +101,14 @@ void api_ping::feed(const char *data, size_t size, int &type, size_t &expected_s
 // STORE FILE
 
 api_store_file::api_store_file(local_peer &local_peer, api_connection::pointer connection) :
-	api_message(local_peer, connection), state_(0), chunk_(0), data_pointer_(0) {
+api_message(local_peer, connection), state_(0), chunk_(0), data_pointer_(0), data_(nullptr) {
 	
 }
 
 api_store_file::~api_store_file() {
-
+	if (data_ != nullptr) {
+		delete data_;
+	}
 }
 
 void api_store_file::first_action(int &type, size_t &expected_size) {
@@ -177,6 +223,7 @@ void api_load_file::feed(const string &line, int &type, size_t &expected_size) {
 		if (block.size() > 0) {
 			connection_->send("FILE LOADED\n"
 				"File-size: " + boost::lexical_cast<string>(block.size()) + "\n"
+				"File-name: " + block.name() + "\n"
 				"Block-code: " + code_.string('_') + "\n"
 				"\n");
 			connection_->send(block.data(), block.size());
@@ -196,10 +243,7 @@ void api_load_file::feed(const string &line, int &type, size_t &expected_size) {
 		string field_name = line.substr(0, colon_pos);
 		string field_value = line.substr(colon_pos + 2);
 
-		if (field_name == "File-name") {
-			code_ = code::from_name(field_value);
-			type = DDSN_MESSAGE_TYPE_STRING;
-		} else if (field_name == "Block-code") {
+		if (field_name == "Block-code") {
 			code_ = code(field_value);
 			type = DDSN_MESSAGE_TYPE_STRING;
 		}

@@ -30,6 +30,16 @@ protected:
 	api_connection::pointer connection_;
 };
 
+class api_hello : public api_message {
+public:
+	api_hello(local_peer &local_peer, api_connection::pointer connection);
+	~api_hello();
+
+	void first_action(int &type, size_t &expected_size);
+	void feed(const std::string &line, int &type, size_t &expected_size);
+	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+};
+
 class api_ping : public api_message {
 public:
 	api_ping(local_peer &local_peer, api_connection::pointer connection);

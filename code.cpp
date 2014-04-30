@@ -1,6 +1,5 @@
 #include "code.h"
 
-#include <openssl/sha.h>
 #include <cstring>
 #include <memory>
 #include <iostream>
@@ -8,16 +7,6 @@
 
 using namespace ddsn;
 using namespace std;
-
-code code::from_name(const std::string &name) {
-	unsigned char hash[SHA256_DIGEST_LENGTH];
-	SHA256_CTX sha256;
-	SHA256_Init(&sha256);
-	SHA256_Update(&sha256, name.c_str(), name.length());
-	SHA256_Final(hash, &sha256);
-	
-	return code(SHA256_DIGEST_LENGTH, hash);
-}
 
 code::code() {
 	code_ = new unsigned char[1];

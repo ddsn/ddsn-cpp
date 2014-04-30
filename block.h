@@ -16,6 +16,7 @@ public:
 	void set_data(const char *data, size_t size);
 	char *data();
 	const ddsn::code &code() const;
+	const std::string &name() const;
 	size_t size() const;
 
 	int load_from_filesystem();

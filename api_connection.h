@@ -12,6 +12,7 @@ using boost::system::error_code;
 namespace ddsn {
 
 class api_message;
+class api_server;
 
 class api_connection : public std::enable_shared_from_this<api_connection> {
 public:
@@ -19,11 +20,15 @@ public:
 
 	static int connections;
 
-	api_connection(local_peer &local_peer, io_service& io_service);
+	api_connection(api_server &server, local_peer &local_peer, io_service& io_service);
 	~api_connection();
 
-	tcp::socket& socket();
+	tcp::socket &socket();
+	api_server &server();
 	int id();
+	bool authenticated();
+	void set_authenticated(bool authenticated);
+
 	void start();
 
 	void send(const std::string &string);
@@ -34,9 +39,12 @@ private:
 	void handle_read(const boost::system::error_code& error, std::size_t bytes_transferred);
 	void handle_write(boost::asio::streambuf *snd_streambuf, const boost::system::error_code& error, std::size_t bytes_transferred);
 
+	api_server &server_;
 	local_peer &local_peer_;
 
 	tcp::socket socket_;
+
+	bool authenticated_;
 
 	boost::asio::streambuf rcv_streambuf_;
 	char *rcv_buffer_;

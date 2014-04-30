@@ -17,8 +17,10 @@ int main(int argc, char *argv[]) {
 	desc.add_options()
 		("help", "produce help message")
 		("version", "print version")
+		("peer-host", po::value<string>()->default_value("localhost"), "set peer host")
 		("peer-port", po::value<int>()->default_value(4494), "set peer port")
 		("api-port", po::value<int>()->default_value(4495), "set api port")
+		("api-password", po::value<string>()->default_value(""), "set api password")
 		("integrated", "start as peer of a new network")
 		("capacity", po::value<int>()->default_value(128), "maximum number of blocks to store")
 		;
@@ -39,18 +41,13 @@ int main(int argc, char *argv[]) {
 
 	boost::asio::io_service io_service;
 
-	local_peer my_peer(io_service);
+	local_peer my_peer(io_service, vm["peer-host"].as<string>(), vm["peer-port"].as<int>());
 
 	peer_server peer_server(my_peer, io_service);
-	api_server api_server(my_peer, io_service);
+	api_server api_server(my_peer, io_service, vm["api-password"].as<string>());
 
-	if (vm.count("peer-port")) {
-		peer_server.set_port(vm["peer-port"].as<int>());
-	}
-
-	if (vm.count("api-port")) {
-		api_server.set_port(vm["api-port"].as<int>());
-	}
+	peer_server.set_port(vm["peer-port"].as<int>());
+	api_server.set_port(vm["api-port"].as<int>());
 
 	if (vm.count("integrated")) {
 		my_peer.set_integrated(true);
@@ -64,9 +61,7 @@ int main(int argc, char *argv[]) {
 		cout << "Loaded peer key" << endl;
 	}
 
-	if (vm.count("capacity")) {
-		my_peer.set_capacity(vm["capacity"].as<int>());
-	}
+	my_peer.set_capacity(vm["capacity"].as<int>());
 
 	cout << "Your id is " << my_peer.id().short_string() << endl;
 

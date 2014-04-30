@@ -7,8 +7,6 @@ namespace ddsn {
 
 class code {
 public:
-	static code from_name(const std::string &name);
-
 	code();
 	code(int layers);
 	code(int layers, const unsigned char *code);

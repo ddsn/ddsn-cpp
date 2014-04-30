@@ -8,8 +8,8 @@ using namespace std;
 using boost::asio::io_service;
 using boost::asio::ip::tcp;
 
-peer_server::peer_server(local_peer &local_peer, io_service &io_service, int port) :
-	local_peer_(local_peer), io_service_(io_service), port_(port) {
+peer_server::peer_server(local_peer &local_peer, io_service &io_service) :
+local_peer_(local_peer), io_service_(io_service), port_(4494) {
 
 }
 

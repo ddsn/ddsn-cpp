@@ -9,13 +9,17 @@ using namespace ddsn;
 using namespace std;
 using boost::asio::ip::tcp;
 
-api_server::api_server(local_peer &local_peer, io_service &io_service, int port) :
-	local_peer_(local_peer), io_service_(io_service), port_(port) {
+api_server::api_server(local_peer &local_peer, io_service &io_service, const string &password) :
+local_peer_(local_peer), io_service_(io_service), password_(password), port_(4495) {
 
 }
 
 api_server::~api_server() {
 	delete acceptor_;
+}
+
+string api_server::password() {
+	return password_;
 }
 
 void api_server::set_port(int port) {
@@ -30,7 +34,7 @@ void api_server::start_accept() {
 
 
 void api_server::next_accept() {
-	api_connection::pointer new_connection = api_connection::pointer(new api_connection(local_peer_, io_service_));
+	api_connection::pointer new_connection = api_connection::pointer(new api_connection(*this, local_peer_, io_service_));
 
 	cout << "Waiting for connection API#" << new_connection->id() << " on port " << port_ << endl;
 
@@ -45,4 +49,24 @@ void api_server::handle_accept(api_connection::pointer new_connection, const boo
 	}
 
 	next_accept();
+}
+
+void api_server::add_connection(api_connection::pointer connection) {
+	connections_.push_back(connection);
+}
+
+void api_server::remove_connection(api_connection::pointer connection) {
+	connections_.remove(connection);
+}
+
+void api_server::broadcast(const std::string &string) {
+	for (auto it = connections_.begin(); it != connections_.end(); ++it) {
+		(*it)->send(string);
+	}
+}
+
+void api_server::broadcost(const char *bytes, size_t size) {
+	for (auto it = connections_.begin(); it != connections_.end(); ++it) {
+		(*it)->send(bytes, size);
+	}
 }

@@ -13,7 +13,8 @@ using namespace ddsn;
 using namespace std;
 using boost::asio::ip::tcp;
 
-local_peer::local_peer(boost::asio::io_service &io_service) : io_service_(io_service), integrated_(false), blocks_(0), keypair_(nullptr) {
+local_peer::local_peer(boost::asio::io_service &io_service, string host, int port) : 
+io_service_(io_service), integrated_(false), blocks_(0), keypair_(nullptr), host_(host), port_(port) {
 
 }
 
@@ -112,6 +113,14 @@ void local_peer::load_area_keys() {
 
 RSA *local_peer::keypair() {
 	return keypair_;
+}
+
+const string &local_peer::host() const {
+	return host_;
+}
+
+int local_peer::port() const {
+	return port_;
 }
 
 // blocks

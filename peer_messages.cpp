@@ -69,13 +69,38 @@ void peer_hello::feed(const std::string &line, int &type, size_t &expected_size)
 
 			cout << "PEER#" << connection_->id() << " random number: " << foreign_peer_->verification_number() << endl;
 
-			peer_prove_identity(local_peer_, foreign_peer_, connection_).send();
+			state_ = 2;
 
-			type = DDSN_MESSAGE_TYPE_END;
+			type = DDSN_MESSAGE_TYPE_STRING;
 		} else {
 			public_key_ += line + "\n";
 
 			type = DDSN_MESSAGE_TYPE_STRING;
+		}
+	} else if (state_ == 2) {
+		if (line == "") {
+			if (foreign_peer_->host() == "" || foreign_peer_->port() == -1) {
+				type = DDSN_MESSAGE_TYPE_ERROR;
+				return;
+			} else {
+				peer_prove_identity(local_peer_, foreign_peer_, connection_).send();
+
+				type = DDSN_MESSAGE_TYPE_END;
+			}
+		} else {
+			size_t colon_pos = line.find(": ");
+			if (colon_pos == string::npos) {
+				type = DDSN_MESSAGE_TYPE_ERROR;
+				return;
+			}
+			string field_name = line.substr(0, colon_pos);
+			string field_value = line.substr(colon_pos + 2);
+
+			if (field_name == "Host") {
+				foreign_peer_->set_host(field_value);
+			} else if (field_name == "Port") {
+				foreign_peer_->set_port(stoi(field_value));
+			}
 		}
 	}
 }
@@ -117,6 +142,9 @@ void peer_hello::send() {
 
 	// actually a string, but we can use byte verion of send
 	connection_->send(pub_key, pub_len);
+
+	connection_->send("Host: " + local_peer_.host() + "\n"
+		"Port: " + boost::lexical_cast<string>(local_peer_.id()) + "\n\n");
 }
 
 // PROVE IDENTITY
