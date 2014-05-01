@@ -9,6 +9,7 @@
 #include <openssl/rsa.h>
 #include <boost/asio.hpp>
 #include <boost/function.hpp>
+#include <list>
 #include <unordered_map>
 #include <unordered_set>
 

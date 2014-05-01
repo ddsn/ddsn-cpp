@@ -22,7 +22,7 @@ public:
 	peer_connection(local_peer &local_peer, boost::asio::io_service& io_service);
 	~peer_connection();
 
-	std::shared_ptr<foreign_peer> foreign_peer();
+	std::shared_ptr<ddsn::foreign_peer> foreign_peer();
 	bool introduced() const;
 	bool got_welcome() const;
 
