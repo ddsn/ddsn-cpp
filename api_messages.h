@@ -142,12 +142,14 @@ public:
 
 class api_out_store_file : public api_out_message {
 public:
-	api_out_store_file(const code &block_code);
+	api_out_store_file(const code &block_code, const std::string &block_name, bool success);
 	~api_out_store_file();
 
 	void send(api_connection::pointer connection);
 private:
-	const code &block_code_;
+	const code block_code_;
+	const std::string block_name_;
+	bool success_;
 };
 
 class api_out_load_file : public api_out_message {

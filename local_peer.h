@@ -40,13 +40,14 @@ public:
 	void load_area_keys();
 
 	// blocks
-	void store(const block &block);
-	void load(const ddsn::code &code, boost::function<void(block&)> function);
+	void store(const block &block, boost::function<void(const ddsn::code&, const std::string &, bool)> action);
+	void load(const ddsn::code &code, boost::function<void(block&)> action);
 	bool exists(const ddsn::code &code);
 	int capacity() const;
 	int blocks() const;
 	void set_capacity(int capactiy);
 	void do_load_actions(block &block) const;
+	void do_store_actions(const ddsn::code &code, const std::string &name, bool success) const;
 
 	// network management
 	bool integrated() const;
@@ -77,12 +78,13 @@ private:
 	int capacity_;
 	int blocks_;
 	std::unordered_set<ddsn::code> stored_blocks_;
+	std::list<std::pair<ddsn::code, boost::function<void(block&)>>> load_actions_;
+	std::list<std::pair<ddsn::code, boost::function<void(const ddsn::code&, const std::string &, bool)>>> store_actions_;
 
 	bool integrated_;
 	bool splitting_;
 
 	std::unordered_map<peer_id, std::shared_ptr<foreign_peer>> foreign_peers_;
-	std::list<std::pair<ddsn::code, boost::function<void(block&)>>> load_actions_;
 };
 
 }

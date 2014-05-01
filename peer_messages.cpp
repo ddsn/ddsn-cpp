@@ -32,6 +32,8 @@ peer_message *peer_message::create_message(local_peer &local_peer, peer_connecti
 		return new peer_store_block(local_peer, connection);
 	} else if (first_line == "LOAD BLOCK") {
 		return new peer_load_block(local_peer, connection);
+	} else if (first_line == "STORED BLOCK") {
+		return new peer_stored_block(local_peer, connection);
 	} else if (first_line == "DELIVER BLOCK") {
 		return new peer_deliver_block(local_peer, connection);
 	}
@@ -668,6 +670,10 @@ void peer_store_block::feed(const std::string &line, int &type, size_t &expected
 	}
 }
 
+void action_peer_store_block(local_peer &local_peer, peer_connection::pointer connection, const code &code, const string &name, bool success) {
+	peer_stored_block(local_peer, connection, code, name, success).send();
+}
+
 void peer_store_block::feed(const char *data, size_t size, int &type, size_t &expected_size) {
 	block block(name_);
 
@@ -678,7 +684,7 @@ void peer_store_block::feed(const char *data, size_t size, int &type, size_t &ex
 		return;
 	}
 
-	local_peer_.store(block);
+	local_peer_.store(block, boost::bind(&action_peer_store_block, local_peer_, connection_, _1, _2, _3));
 
 	type = DDSN_MESSAGE_TYPE_END;
 }
@@ -746,6 +752,65 @@ void peer_load_block::feed(const char *data, size_t size, int &type, size_t &exp
 void peer_load_block::send() {
 	peer_message::send("LOAD BLOCK\n"
 		"Code: " + code_.string('_') + "\n"
+		"\n");
+}
+
+// STORED BLOCK
+
+peer_stored_block::peer_stored_block(local_peer &local_peer, peer_connection::pointer connection) :
+peer_message(local_peer, connection) {
+
+}
+
+peer_stored_block::peer_stored_block(local_peer &local_peer, peer_connection::pointer connection, const code &code, std::string name, bool success) :
+peer_message(local_peer, connection), code_(code), name_(name), success_(success) {
+
+}
+
+peer_stored_block::~peer_stored_block() {
+
+}
+
+void peer_stored_block::first_action(int &type, size_t &expected_size) {
+	type = DDSN_MESSAGE_TYPE_STRING;
+}
+
+void peer_stored_block::feed(const std::string &line, int &type, size_t &expected_size) {
+	if (line == "") {
+		local_peer_.do_store_actions(code_, name_, success_);
+
+		type = DDSN_MESSAGE_TYPE_END;
+	}
+	else {
+		size_t colon_pos = line.find(": ");
+		if (colon_pos == string::npos) {
+			type = DDSN_MESSAGE_TYPE_ERROR;
+			return;
+		}
+		string field_name = line.substr(0, colon_pos);
+		string field_value = line.substr(colon_pos + 2);
+
+		if (field_name == "Code") {
+			code_ = code(field_value, '_');
+		} else if (field_name == "Name") {
+			name_ = field_value;
+		} else if (field_name == "Success") {
+			success_ = field_value == "yes";
+		}
+
+		type = DDSN_MESSAGE_TYPE_STRING;
+	}
+}
+
+void peer_stored_block::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+
+}
+
+void peer_stored_block::send() {
+	peer_message::send("STORED BLOCK\n"
+		"Code: " + code_.string('_') + "\n"
+		"Name: " + name_ + "\n"
+		"Success: " + (success_ ? "yes" : "no") + "\n"
 		"\n");
 }
 

@@ -131,7 +131,7 @@ RSA *local_peer::keypair() {
 
 // blocks
 
-void local_peer::store(const block &block) {
+void local_peer::store(const block &block, boost::function<void(const ddsn::code &, const string &, bool)> action) {
 	if (!integrated_) {
 		return;
 	}
@@ -139,6 +139,8 @@ void local_peer::store(const block &block) {
 	if (code_.contains(block.code())) {
 		cout << "Save " << block.code().string('_') << " to filesystem" << endl;
 		if (block.save_to_filesystem() == 0) {
+			action(block.code(), block.name(), true);
+
 			blocks_++;
 			stored_blocks_.insert(block.code());
 
@@ -160,10 +162,14 @@ void local_peer::store(const block &block) {
 					peer_set_code(*this, peer->connection(), new_code).send();
 				}
 			}
+		} else {
+			action(block.code(), block.name(), false);
 		}
 	} else {
 		int layer = code_.differing_layer(block.code());
 		auto peer = out_peer(layer, true);
+
+		store_actions_.push_back(std::pair<ddsn::code, boost::function<void(const ddsn::code &, const string &, bool)>>(block.code(), action));
 
 		peer_store_block(*this, peer->connection(), &block).send();
 	}
@@ -207,6 +213,14 @@ void local_peer::do_load_actions(block &block) const {
 	for (auto it = load_actions_.begin(); it != load_actions_.end(); ++it) {
 		if (it->first == block.code()) {
 			it->second(block);
+		}
+	}
+}
+
+void local_peer::do_store_actions(const ddsn::code &code, const std::string &name, bool success) const {
+	for (auto it = store_actions_.begin(); it != store_actions_.end(); ++it) {
+		if (it->first == code) {
+			it->second(code, name, success);
 		}
 	}
 }

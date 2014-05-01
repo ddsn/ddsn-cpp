@@ -196,6 +196,10 @@ void api_in_store_file::feed(const string &line, int &type, size_t &expected_siz
 	}
 }
 
+void action_api_store_block(api_connection::pointer connection, const code &code, const string &name, bool success) {
+	api_out_store_file(code, name, success).send(connection);
+}
+
 void api_in_store_file::feed(const char *data, size_t size, int &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_STRING;
 
@@ -211,9 +215,7 @@ void api_in_store_file::feed(const char *data, size_t size, int &type, size_t &e
 		block block(file_name_);
 		block.set_data(data_, file_size_);
 
-		local_peer_.store(block);
-
-		api_out_store_file(block.code()).send(connection_);
+		local_peer_.store(block, boost::bind(&action_api_store_block, connection_, _1, _2, _3));
 
 		type = DDSN_MESSAGE_TYPE_END;
 	}
@@ -362,8 +364,8 @@ void api_out_ping::send(api_connection::pointer connection) {
 
 // STORE FILE
 
-api_out_store_file::api_out_store_file(const code &block_code) :
-block_code_(block_code) {
+api_out_store_file::api_out_store_file(const code &block_code, const std::string &block_name, bool success) :
+block_code_(block_code), block_name_(block_name), success_(success) {
 }
 
 api_out_store_file::~api_out_store_file() {
@@ -372,6 +374,8 @@ api_out_store_file::~api_out_store_file() {
 void api_out_store_file::send(api_connection::pointer connection) {
 	api_out_message::send(connection, "STORE FILE\n"
 		"Block-code: " + block_code_.string() + "\n"
+		"Block-name: " + block_name_ + "\n"
+		"Success: " + (success_ ? "yes" : "no") + "\n"
 		"\n");
 }
 
