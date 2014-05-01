@@ -468,6 +468,8 @@ void peer_get_code::feed(const std::string &line, int &type, size_t &expected_si
 
 		cout << "Should introduce peers now..." << endl;
 
+		local_peer_.set_splitting(false);
+
 		type = DDSN_MESSAGE_TYPE_END;
 	} else {
 		size_t colon_pos = line.find(": ");
