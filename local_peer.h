@@ -24,49 +24,60 @@ public:
 	void set_api_server(ddsn::api_server *api_server);
 	ddsn::api_server *api_server() const;
 
+	// general
 	const peer_id &id() const;
 	const ddsn::code &code() const;
-	bool integrated() const;
-	int capacity() const;
 	const std::string &host() const;
 	int port() const;
-
-	void set_integrated(bool integrated);
-	void set_capacity(int capactiy);
+	void set_code(const ddsn::code &code);
 
 	// keys
 	int load_key();
 	int save_key();
 	void generate_key();
 	RSA *keypair();
-
 	void load_area_keys();
 
 	// blocks
 	void store(const block &block);
 	void load(block &block);
 	bool exists(const ddsn::code &code);
+	int capacity() const;
 	int blocks() const;
+	void set_capacity(int capactiy);
+
+	// network management
+	bool integrated() const;
+	bool splitting() const;
+	void set_integrated(bool integrated);
+	void set_splitting(bool splitting);
 
 	// peers
-	void connect(std::string host, int port);
+	void connect(std::string host, int port, std::shared_ptr<foreign_peer> foreign_peer, std::string type);
 	void add_foreign_peer(std::shared_ptr<foreign_peer> foreign_peer);
 	const std::unordered_map<peer_id, std::shared_ptr<foreign_peer>> &foreign_peers() const;
+	std::shared_ptr<foreign_peer> connected_queued_peer() const;
 private:
 	void create_id_from_key();
 
-	peer_id id_;
 	boost::asio::io_service &io_service_;
 	ddsn::api_server *api_server_;
+
+	peer_id id_;
 	ddsn::code code_;
-	bool integrated_;
+	std::string host_;
+	int port_;
+
+	RSA *keypair_;
+
 	int capacity_;
 	int blocks_;
 	std::unordered_set<ddsn::code> stored_blocks_;
-	RSA *keypair_;
+
+	bool integrated_;
+	bool splitting_;
+
 	std::unordered_map<peer_id, std::shared_ptr<foreign_peer>> foreign_peers_;
-	std::string host_;
-	int port_;
 };
 
 }

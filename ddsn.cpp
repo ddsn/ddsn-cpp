@@ -10,7 +10,7 @@ using namespace ddsn;
 using namespace std;
 namespace po = boost::program_options;
 
-string version = "0.1";
+string version = "0.0.1";
 
 int main(int argc, char *argv[]) {
 	po::options_description desc("Allowed options");
@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
 		("api-port", po::value<int>()->default_value(4495), "set api port")
 		("api-password", po::value<string>()->default_value(""), "set api password")
 		("integrated", "start as peer of a new network")
-		("capacity", po::value<int>()->default_value(128), "maximum number of blocks to store")
+		("capacity", po::value<int>()->default_value(1), "maximum number of blocks to store")
 		;
 
 	po::variables_map vm;

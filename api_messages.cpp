@@ -281,9 +281,8 @@ void api_in_connect_peer::first_action(int &type, size_t &expected_size) {
 }
 
 void api_in_connect_peer::feed(const string &line, int &type, size_t &expected_size) {
-
 	if (line == "") {
-		local_peer_.connect(host_, port_);
+		local_peer_.connect(host_, port_, shared_ptr<foreign_peer>(new foreign_peer()), "queued");
 
 		type = DDSN_MESSAGE_TYPE_END;
 	} else {

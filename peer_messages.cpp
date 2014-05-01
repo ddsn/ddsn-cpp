@@ -19,6 +19,18 @@ peer_message *peer_message::create_message(local_peer &local_peer, peer_connecti
 		return new peer_verify_identity(local_peer, connection);
 	} else if (first_line == "WELCOME") {
 		return new peer_welcome(local_peer, connection);
+	} else if (first_line == "SET CODE") {
+		return new peer_set_code(local_peer, connection);
+	} else if (first_line == "GET CODE") {
+		return new peer_get_code(local_peer, connection);
+	} else if (first_line == "INTRODUCE PEER") {
+		return new peer_introduce(local_peer, connection);
+	} else if (first_line == "CONNECT IN") {
+		return new peer_connect(local_peer, connection);
+	} else if (first_line == "STORE BLOCK") {
+		return new peer_store_block(local_peer, connection);
+	} else if (first_line == "LOAD BLOCK") {
+		return new peer_load_block(local_peer, connection);
 	}
 	return nullptr;
 }
@@ -44,6 +56,11 @@ void peer_message::send(const char *bytes, size_t size) {
 
 peer_hello::peer_hello(local_peer &local_peer, peer_connection::pointer connection) :
 peer_message(local_peer, connection), state_(0) {
+
+}
+
+peer_hello::peer_hello(local_peer &local_peer, peer_connection::pointer connection, string type) :
+peer_message(local_peer, connection), type_(type), state_(0) {
 
 }
 
@@ -118,6 +135,12 @@ void peer_hello::feed(const std::string &line, int &type, size_t &expected_size)
 					type = DDSN_MESSAGE_TYPE_ERROR;
 					return;
 				}
+			} else if (field_name == "Type") {
+				if (field_value == "queued") {
+					connection_->foreign_peer()->set_queued(true);
+				} else {
+					connection_->foreign_peer()->set_queued(false);
+				}
 			}
 		}
 	}
@@ -133,10 +156,19 @@ void peer_hello::feed(const char *data, size_t size, int &type, size_t &expected
 			return;
 		}
 
-		std::shared_ptr<foreign_peer> foreign_peer(new foreign_peer());
-		connection_->set_foreign_peer(foreign_peer);
-		foreign_peer->set_id(foreign_id);
-		foreign_peer->set_connection(connection_);
+		auto it = local_peer_.foreign_peers().find(foreign_id);
+		if (it != local_peer_.foreign_peers().end()) {
+			// already know you!
+			if (it->second->connected()) {
+				// and I'm already connected to you!
+				type = DDSN_MESSAGE_TYPE_ERROR;
+				return;
+			} else {
+				connection_->set_foreign_peer(it->second);
+			}
+		} else {
+			connection_->foreign_peer()->set_id(foreign_id);
+		}
 
 		type = DDSN_MESSAGE_TYPE_STRING;
 	}
@@ -162,7 +194,9 @@ void peer_hello::send() {
 	peer_message::send(pub_key, pub_len);
 
 	peer_message::send("Host: " + local_peer_.host() + "\n"
-		"Port: " + boost::lexical_cast<string>(local_peer_.port()) + "\n\n");
+		"Port: " + boost::lexical_cast<string>(local_peer_.port()) + "\n"
+		"Type: " + type_ + "\n"
+		"\n");
 }
 
 // PROVE IDENTITY
@@ -261,7 +295,7 @@ void peer_verify_identity::feed(const char *data, size_t size, int &type, size_t
 			peer_welcome(local_peer_, connection_).send();
 
 			if (!connection_->introduced()) {
-				peer_hello(local_peer_, connection_).send();
+				peer_hello(local_peer_, connection_, "?").send();
 				connection_->set_introduced(true);
 			}
 
@@ -317,4 +351,337 @@ void peer_welcome::feed(const char *data, size_t size, int &type, size_t &expect
 
 void peer_welcome::send() {
 	peer_message::send("WELCOME\n");
+}
+
+// SET CODE
+
+peer_set_code::peer_set_code(local_peer &local_peer, peer_connection::pointer connection) :
+peer_message(local_peer, connection) {
+
+}
+
+peer_set_code::peer_set_code(local_peer &local_peer, peer_connection::pointer connection, code code) :
+peer_message(local_peer, connection), code_(code) {
+
+}
+
+peer_set_code::~peer_set_code() {
+
+}
+
+void peer_set_code::first_action(int &type, size_t &expected_size) {
+	type = DDSN_MESSAGE_TYPE_STRING;
+}
+
+void peer_set_code::feed(const std::string &line, int &type, size_t &expected_size) {
+	if (line == "") {
+		cout << "Code I got (2): " << code_ << endl;
+
+		local_peer_.set_code(code_);
+		peer_get_code(local_peer_, connection_, code_).send();
+
+		int layer = code_.layers() - 1;
+
+		connection_->foreign_peer()->set_out_layer(layer);
+		connection_->foreign_peer()->set_in_layer(layer);
+
+		type = DDSN_MESSAGE_TYPE_END;
+	} else {
+		size_t colon_pos = line.find(": ");
+		if (colon_pos == string::npos) {
+			type = DDSN_MESSAGE_TYPE_ERROR;
+			return;
+		}
+		string field_name = line.substr(0, colon_pos);
+		string field_value = line.substr(colon_pos + 2);
+
+		if (field_name == "Code") {
+			cout << "Code I got (1): " << field_value << endl;
+			code_ = code(field_value, '_');
+		}
+
+		type = DDSN_MESSAGE_TYPE_STRING;
+	}
+}
+
+void peer_set_code::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+
+}
+
+void peer_set_code::send() {
+	peer_message::send("SET CODE\n"
+		"Code: " + code_.string('_') + "\n"
+		"\n");
+}
+
+// GET CODE
+
+peer_get_code::peer_get_code(local_peer &local_peer, peer_connection::pointer connection) :
+peer_message(local_peer, connection) {
+
+}
+
+peer_get_code::peer_get_code(local_peer &local_peer, peer_connection::pointer connection, code code) :
+peer_message(local_peer, connection), code_(code) {
+
+}
+
+peer_get_code::~peer_get_code() {
+
+}
+
+void peer_get_code::first_action(int &type, size_t &expected_size) {
+	type = DDSN_MESSAGE_TYPE_STRING;
+}
+
+void peer_get_code::feed(const std::string &line, int &type, size_t &expected_size) {
+	if (line == "") {
+		// first, check if the code is correct
+
+		cout << "mine: " << local_peer_.code() << endl;
+		cout << "foreign: " << code_ << endl;
+
+		if (local_peer_.code().layers() + 1 != code_.layers()) {
+			cout << "Wrong code!" << endl;
+			return;
+		}
+
+		for (int i = 0; i < local_peer_.code().layers(); i++) {
+			if (code_.layer_code(i) != code_.layer_code(i)) {
+				cout << "Wrong code!" << endl;
+				return;
+			}
+		}
+
+		// code is correct!
+
+		int layer = local_peer_.code().layers();
+
+		connection_->foreign_peer()->set_out_layer(layer);
+		connection_->foreign_peer()->set_in_layer(layer);
+
+		code local_code = local_peer_.code();
+		local_code.resize_layers(layer + 1);
+		local_code.set_layer_code(layer, 0);
+		local_peer_.set_code(local_code);
+
+		// TODO: Introcude peers
+
+		cout << "Should introduce peers now..." << endl;
+
+		type = DDSN_MESSAGE_TYPE_END;
+	} else {
+		size_t colon_pos = line.find(": ");
+		if (colon_pos == string::npos) {
+			type = DDSN_MESSAGE_TYPE_ERROR;
+			return;
+		}
+		string field_name = line.substr(0, colon_pos);
+		string field_value = line.substr(colon_pos + 2);
+
+		if (field_name == "Code") {
+			code_ = ddsn::code(field_value, '_');
+		}
+
+		type = DDSN_MESSAGE_TYPE_STRING;
+	}
+}
+
+void peer_get_code::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+
+}
+
+void peer_get_code::send() {
+	peer_message::send("GET CODE\n"
+		"Code: " + code_.string('_') + "\n"
+		"\n");
+}
+
+// INTRODUCE PEER
+
+peer_introduce::peer_introduce(local_peer &local_peer, peer_connection::pointer connection) :
+peer_message(local_peer, connection) {
+
+}
+
+peer_introduce::peer_introduce(local_peer &local_peer, peer_connection::pointer connection, peer_id peer_id, std::string host, int port, int layer) :
+peer_message(local_peer, connection), peer_id_(peer_id), host_(host), port_(port), layer_(layer), state_(0) {
+
+}
+
+peer_introduce::~peer_introduce() {
+
+}
+
+void peer_introduce::first_action(int &type, size_t &expected_size) {
+	type = DDSN_MESSAGE_TYPE_STRING;
+}
+
+void peer_introduce::feed(const std::string &line, int &type, size_t &expected_size) {
+	if (line == "") {
+		type = DDSN_MESSAGE_TYPE_BYTES;
+		expected_size = 32;
+	} else {
+		size_t colon_pos = line.find(": ");
+		if (colon_pos == string::npos) {
+			type = DDSN_MESSAGE_TYPE_ERROR;
+			return;
+		}
+		string field_name = line.substr(0, colon_pos);
+		string field_value = line.substr(colon_pos + 2);
+
+		if (field_name == "Host") {
+			host_ = field_value;
+		} else if (field_name == "Port") {
+			try {
+				port_ = stoi(field_value);
+			} catch (...) {
+				type = DDSN_MESSAGE_TYPE_ERROR;
+				return;
+			}
+		} else if (field_name == "Layer") {
+			try {
+				layer_ = stoi(field_value);
+			} catch (...) {
+				type = DDSN_MESSAGE_TYPE_ERROR;
+				return;
+			}
+		}
+
+		type = DDSN_MESSAGE_TYPE_STRING;
+	}
+}
+
+void peer_introduce::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+	peer_id peer_id;
+	peer_id.set_id((unsigned char *)data);
+
+	auto it = local_peer_.foreign_peers().find(peer_id);
+	if (it != local_peer_.foreign_peers().end()) {
+		if (it->second->connected()) {
+			code code;
+			code.resize_layers(layer_);
+			for (int i = 0; i < layer_; i++) {
+				code.set_layer_code(i, local_peer_.code().layer_code(i)); // TODO: implement a faster function for that in ddsn::code
+			}
+			peer_connect(local_peer_, it->second->connection(), layer_, code).send();
+		} else {
+			local_peer_.connect(host_, port_, it->second, "introduce");
+		}
+		it->second->set_out_layer(layer_);
+	} else {
+		shared_ptr<foreign_peer> new_peer(new foreign_peer());
+		local_peer_.connect(host_, port_, new_peer, "introduce");
+		new_peer->set_out_layer(layer_);
+	}
+
+	type = DDSN_MESSAGE_TYPE_END;
+}
+
+void peer_introduce::send() {
+	peer_message::send("INTRODUCE PEER\n"
+		"Host: " + host_ + "\n"
+		"Port: " + boost::lexical_cast<string>(port_) + "\n"
+		"Layer: " + boost::lexical_cast<string>(layer_)+"\n"
+		"\n");
+	peer_message::send((char *)peer_id_.id(), 32);
+}
+
+// CONNECT IN
+
+peer_connect::peer_connect(local_peer &local_peer, peer_connection::pointer connection) :
+peer_message(local_peer, connection) {
+
+}
+
+peer_connect::peer_connect(local_peer &local_peer, peer_connection::pointer connection, int layer, code code) :
+peer_message(local_peer, connection) {
+
+}
+
+peer_connect::~peer_connect() {
+
+}
+
+void peer_connect::first_action(int &type, size_t &expected_size) {
+
+}
+
+void peer_connect::feed(const std::string &line, int &type, size_t &expected_size) {
+
+}
+
+void peer_connect::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+
+}
+
+void peer_connect::send() {
+	peer_message::send("CONNECT IN\n"
+		"Code: " + code_.string() + "\n"
+		"Layer: " + boost::lexical_cast<string>(layer_) + "\n"
+		"\n");
+}
+
+// STORE BLOCK
+
+peer_store_block::peer_store_block(local_peer &local_peer, peer_connection::pointer connection) :
+peer_message(local_peer, connection) {
+
+}
+
+peer_store_block::peer_store_block(local_peer &local_peer, peer_connection::pointer connection, const block *block) :
+peer_message(local_peer, connection), block_(block) {
+
+}
+
+peer_store_block::~peer_store_block() {
+
+}
+
+void peer_store_block::first_action(int &type, size_t &expected_size) {
+
+}
+
+void peer_store_block::feed(const std::string &line, int &type, size_t &expected_size) {
+
+}
+
+void peer_store_block::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+
+}
+
+void peer_store_block::send() {
+
+}
+
+// LOAD BLOCK
+
+peer_load_block::peer_load_block(local_peer &local_peer, peer_connection::pointer connection) :
+peer_message(local_peer, connection) {
+
+}
+
+peer_load_block::peer_load_block(local_peer &local_peer, peer_connection::pointer connection, const code &code) :
+peer_message(local_peer, connection), code_(code) {
+
+}
+
+peer_load_block::~peer_load_block() {
+
+}
+
+void peer_load_block::first_action(int &type, size_t &expected_size) {
+
+}
+
+void peer_load_block::feed(const std::string &line, int &type, size_t &expected_size) {
+
+}
+
+void peer_load_block::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+
+}
+
+void peer_load_block::send() {
+
 }

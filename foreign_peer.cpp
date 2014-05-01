@@ -42,7 +42,7 @@ int foreign_peer::out_layer() const {
 }
 
 bool foreign_peer::queued() const {
-	return in_layer_ == -1 && out_layer_ == -1;
+	return queued_;
 }
 
 void foreign_peer::set_id(const peer_id &id) {
@@ -58,6 +58,10 @@ int foreign_peer::port() const {
 }
 bool foreign_peer::connected() const {
 	return (bool)peer_connection_;
+}
+
+std::shared_ptr<peer_connection> foreign_peer::connection() const {
+	return peer_connection_;
 }
 
 void foreign_peer::set_public_key_str(const std::string &public_key) {
@@ -88,6 +92,10 @@ void foreign_peer::set_in_layer(int layer) {
 
 void foreign_peer::set_out_layer(int layer) {
 	out_layer_ = layer;
+}
+
+void foreign_peer::set_queued(bool queued) {
+	queued_ = queued;
 }
 
 void foreign_peer::set_host(const std::string &host) {

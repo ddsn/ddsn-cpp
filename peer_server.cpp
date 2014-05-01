@@ -28,7 +28,11 @@ void peer_server::start_accept() {
 }
 
 void peer_server::next_accept() {
-	peer_connection::pointer new_connection = peer_connection::pointer(new peer_connection(local_peer_, io_service_));
+	peer_connection::pointer new_connection = peer_connection::pointer(
+		new peer_connection(
+			local_peer_, 
+			io_service_));
+	new_connection->set_foreign_peer(shared_ptr<foreign_peer>(new foreign_peer()));
 
 	cout << "Waiting for connection PEER#" << new_connection->id() << " on port " << port_ << endl;
 

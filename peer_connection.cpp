@@ -14,9 +14,8 @@ using boost::asio::ip::tcp;
 int peer_connection::connections = 0;
 
 peer_connection::peer_connection(local_peer &local_peer, io_service &io_service) :
-local_peer_(local_peer), socket_(io_service), message_(nullptr), foreign_peer_(nullptr), introduced_(false), rcv_buffer_start_(0), rcv_buffer_end_(0) {
+local_peer_(local_peer), socket_(io_service), message_(nullptr), introduced_(false), rcv_buffer_start_(0), rcv_buffer_end_(0) {
 	id_ = connections++;
-
 	rcv_buffer_ = new char[256];
 	rcv_buffer_size_ = 256;
 }
@@ -40,6 +39,7 @@ std::shared_ptr<foreign_peer> peer_connection::foreign_peer() {
 
 void peer_connection::set_foreign_peer(std::shared_ptr<ddsn::foreign_peer> foreign_peer) {
 	foreign_peer_ = foreign_peer;
+	foreign_peer->set_connection(shared_from_this());
 }
 
 void peer_connection::set_introduced(bool introduced) {

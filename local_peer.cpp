@@ -48,6 +48,10 @@ int local_peer::capacity() const {
 	return capacity_;
 }
 
+void local_peer::set_code(const ddsn::code &code) {
+	code_ = code;
+}
+
 void local_peer::set_integrated(bool integrated) {
 	integrated_ = integrated;
 }
@@ -142,15 +146,22 @@ void local_peer::store(const block &block) {
 			blocks_++;
 			stored_blocks_.insert(block.code());
 
-			if (blocks_ > capacity_) {
+			if (blocks_ > capacity_ && !splitting_) {
+				// we have too many blocks and we are not splitting right now (i.e. nothing's be done about that yet)
 				cout << "Capacity exhausted (" << blocks_ << " blocks stored, capacity: " << capacity_ << ")" << endl;
 
-				for (auto it = foreign_peers_.begin(); it != foreign_peers_.end(); ++it) {
-					if (it->second->queued()) {
-						// TODO
-						cout << "Well, I have a peer waiting to get part of the network...";
-						break;
-					}
+				shared_ptr<foreign_peer> peer = connected_queued_peer();
+				if (peer) {
+					peer->set_queued(false);
+					splitting_ = true;
+
+					// generate new peer code with a trailing 1
+					ddsn::code new_code = code_;
+					int layers = new_code.layers();
+					new_code.resize_layers(layers + 1);
+					new_code.set_layer_code(layers, 1);
+
+					peer_set_code(*this, peer->connection(), new_code).send();
 				}
 			}
 		}
@@ -186,7 +197,19 @@ void local_peer::create_id_from_key() {
 	id_.set_id(hash);
 }
 
-void local_peer::connect(string host, int port) {
+// network management
+
+void local_peer::set_splitting(bool splitting) {
+	splitting_ = splitting;
+}
+
+bool local_peer::splitting() const {
+	return splitting_;
+}
+
+// peers
+
+void local_peer::connect(string host, int port, shared_ptr<foreign_peer> foreign_peer, string type) {
 	cout << "Connecting to " << host << ":" << port << "..." << endl;
 
 	tcp::resolver resolver(io_service_);
@@ -196,12 +219,13 @@ void local_peer::connect(string host, int port) {
 		tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
 
 		peer_connection::pointer new_connection(new peer_connection(*this, io_service_));
+		new_connection->set_foreign_peer(foreign_peer);
 
 		boost::asio::connect(new_connection->socket(), endpoint_iterator);
 
 		cout << "PEER#" << new_connection->id() << " CONNECTED" << endl;
 
-		peer_hello(*this, new_connection).send();
+		peer_hello(*this, new_connection, type).send();
 
 		new_connection->set_introduced(true);
 		new_connection->start();
@@ -213,8 +237,32 @@ void local_peer::connect(string host, int port) {
 void local_peer::add_foreign_peer(std::shared_ptr<foreign_peer> foreign_peer) {
 	foreign_peers_[foreign_peer->id()] = foreign_peer;
 	cout << "Added peer " << foreign_peer->id().short_string() << "; having " << foreign_peers_.size() << " peers now" << endl;
+
+	if (foreign_peer->identity_verified() && foreign_peer->connected() && foreign_peer->out_layer() != -1) {
+		// this peer is a peer we should connect to, because the out_layer is set
+		int layer = foreign_peer->out_layer();
+
+		// calculate code to show we are a valid in peer for this layer
+		ddsn::code code;
+		code.resize_layers(layer);
+		for (int i = 0; i < layer; i++) {
+			code.set_layer_code(i, code_.layer_code(i)); // TODO: implement a faster function for that in ddsn::code
+		}
+
+		peer_connect(*this, foreign_peer->connection(), layer, code).send();
+	}
 }
 
 const std::unordered_map<peer_id, std::shared_ptr<foreign_peer>> &local_peer::foreign_peers() const {
 	return foreign_peers_;
+}
+
+std::shared_ptr<foreign_peer> local_peer::connected_queued_peer() const {
+	for (auto it = foreign_peers_.begin(); it != foreign_peers_.end(); ++it) {
+		if (it->second->connected() && it->second->queued() && it->second->identity_verified()) {
+			return it->second;
+			break;
+		}
+	}
+	return nullptr;
 }

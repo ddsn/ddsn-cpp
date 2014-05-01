@@ -29,6 +29,7 @@ public:
 	const std::string &host() const;
 	int port() const;
 	bool connected() const;
+	std::shared_ptr<peer_connection> connection() const;
 
 	void set_id(const peer_id &id);
 	void set_public_key_str(const std::string &public_key);
@@ -37,6 +38,7 @@ public:
 	void set_connection(std::shared_ptr<peer_connection> peer_connection);
 	void set_in_layer(int layer);
 	void set_out_layer(int layer);
+	void set_queued(bool queued);
 	void set_host(const std::string &host);
 	void set_port(int port);
 private:
@@ -50,6 +52,7 @@ private:
 	int out_layer_;
 	std::string host_;
 	int port_;
+	bool queued_;
 };
 
 }
