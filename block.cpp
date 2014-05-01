@@ -20,7 +20,7 @@ block::~block() {
 	}
 }
 
-char *block::data() {
+const char *block::data() const {
 	return data_;
 }
 

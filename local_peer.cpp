@@ -44,10 +44,6 @@ bool local_peer::integrated() const {
 	return integrated_;
 }
 
-int local_peer::capacity() const {
-	return capacity_;
-}
-
 void local_peer::set_code(const ddsn::code &code) {
 	code_ = code;
 }
@@ -56,8 +52,12 @@ void local_peer::set_integrated(bool integrated) {
 	integrated_ = integrated;
 }
 
-void local_peer::set_capacity(int capacity) {
-	capacity_ = capacity;
+const string &local_peer::host() const {
+	return host_;
+}
+
+int local_peer::port() const {
+	return port_;
 }
 
 // keys
@@ -129,17 +129,13 @@ RSA *local_peer::keypair() {
 	return keypair_;
 }
 
-const string &local_peer::host() const {
-	return host_;
-}
-
-int local_peer::port() const {
-	return port_;
-}
-
 // blocks
 
 void local_peer::store(const block &block) {
+	if (!integrated_) {
+		return;
+	}
+
 	if (code_.contains(block.code())) {
 		cout << "Save " << block.code().string('_') << " to filesystem" << endl;
 		if (block.save_to_filesystem() == 0) {
@@ -165,13 +161,33 @@ void local_peer::store(const block &block) {
 				}
 			}
 		}
+	} else {
+		int layer = code_.differing_layer(block.code());
+		auto peer = out_peer(layer, true);
+
+		peer_store_block(*this, peer->connection(), &block).send();
 	}
 }
 
-void local_peer::load(block &block) {
-	if (code_.contains(block.code())) {
-		cout << "Load " << block.code().string('_') << " from filesystem" << endl;
+void local_peer::load(const ddsn::code &block_code, boost::function<void(block&)> action) {
+	if (!integrated_) {
+		return;
+	}
+
+	if (code_.contains(block_code)) {
+		cout << "Load " << block_code.string('_') << " from filesystem" << endl;
+		
+		block block(block_code);
 		block.load_from_filesystem();
+
+		action(block);
+	} else {
+		int layer = code_.differing_layer(block_code);
+		auto peer = out_peer(layer, true);
+
+		load_actions_.push_back(std::pair<ddsn::code, boost::function<void(block&)>>(block_code, action));
+
+		peer_load_block(*this, peer->connection(), block_code).send();
 	}
 }
 
@@ -179,22 +195,20 @@ int local_peer::blocks() const {
 	return blocks_;
 }
 
-void local_peer::create_id_from_key() {
-	unsigned char *buf, *p;
-	int len = i2d_RSAPublicKey(keypair_, nullptr);
-	buf = new unsigned char[len];
-	p = buf;
-	i2d_RSAPublicKey(keypair_, &p);
+int local_peer::capacity() const {
+	return capacity_;
+}
 
-	unsigned char hash[32];
-	SHA256_CTX sha256;
-	SHA256_Init(&sha256);
-	SHA256_Update(&sha256, buf, len);
-	SHA256_Final(hash, &sha256);
+void local_peer::set_capacity(int capacity) {
+	capacity_ = capacity;
+}
 
-	delete[] buf;
-
-	id_.set_id(hash);
+void local_peer::do_load_actions(block &block) const {
+	for (auto it = load_actions_.begin(); it != load_actions_.end(); ++it) {
+		if (it->first == block.code()) {
+			it->second(block);
+		}
+	}
 }
 
 // network management
@@ -260,6 +274,36 @@ const std::unordered_map<peer_id, std::shared_ptr<foreign_peer>> &local_peer::fo
 std::shared_ptr<foreign_peer> local_peer::connected_queued_peer() const {
 	for (auto it = foreign_peers_.begin(); it != foreign_peers_.end(); ++it) {
 		if (it->second->connected() && it->second->queued() && it->second->identity_verified()) {
+			return it->second;
+			break;
+		}
+	}
+	return nullptr;
+}
+
+// private methods
+
+void local_peer::create_id_from_key() {
+	unsigned char *buf, *p;
+	int len = i2d_RSAPublicKey(keypair_, nullptr);
+	buf = new unsigned char[len];
+	p = buf;
+	i2d_RSAPublicKey(keypair_, &p);
+
+	unsigned char hash[32];
+	SHA256_CTX sha256;
+	SHA256_Init(&sha256);
+	SHA256_Update(&sha256, buf, len);
+	SHA256_Final(hash, &sha256);
+
+	delete[] buf;
+
+	id_.set_id(hash);
+}
+
+std::shared_ptr<foreign_peer> local_peer::out_peer(int layer, bool connected) const {
+	for (auto it = foreign_peers_.begin(); it != foreign_peers_.end(); ++it) {
+		if ((!connected || it->second->connected()) && it->second->out_layer() == layer && it->second->identity_verified()) {
 			return it->second;
 			break;
 		}

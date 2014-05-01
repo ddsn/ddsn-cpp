@@ -8,6 +8,7 @@
 
 #include <openssl/rsa.h>
 #include <boost/asio.hpp>
+#include <boost/function.hpp>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -40,11 +41,12 @@ public:
 
 	// blocks
 	void store(const block &block);
-	void load(block &block);
+	void load(const ddsn::code &code, boost::function<void(block&)> function);
 	bool exists(const ddsn::code &code);
 	int capacity() const;
 	int blocks() const;
 	void set_capacity(int capactiy);
+	void do_load_actions(block &block) const;
 
 	// network management
 	bool integrated() const;
@@ -59,6 +61,8 @@ public:
 	std::shared_ptr<foreign_peer> connected_queued_peer() const;
 private:
 	void create_id_from_key();
+
+	std::shared_ptr<foreign_peer> out_peer(int layer, bool connected = true) const;
 
 	boost::asio::io_service &io_service_;
 	ddsn::api_server *api_server_;
@@ -78,6 +82,7 @@ private:
 	bool splitting_;
 
 	std::unordered_map<peer_id, std::shared_ptr<foreign_peer>> foreign_peers_;
+	std::list<std::pair<ddsn::code, boost::function<void(block&)>>> load_actions_;
 };
 
 }

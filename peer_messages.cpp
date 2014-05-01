@@ -5,6 +5,7 @@
 
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
+#include <boost/bind.hpp>
 #include <boost/lexical_cast.hpp>
 
 using namespace ddsn;
@@ -31,6 +32,8 @@ peer_message *peer_message::create_message(local_peer &local_peer, peer_connecti
 		return new peer_store_block(local_peer, connection);
 	} else if (first_line == "LOAD BLOCK") {
 		return new peer_load_block(local_peer, connection);
+	} else if (first_line == "DELIVER BLOCK") {
+		return new peer_deliver_block(local_peer, connection);
 	}
 	return nullptr;
 }
@@ -375,8 +378,6 @@ void peer_set_code::first_action(int &type, size_t &expected_size) {
 
 void peer_set_code::feed(const std::string &line, int &type, size_t &expected_size) {
 	if (line == "") {
-		cout << "Code I got (2): " << code_ << endl;
-
 		local_peer_.set_code(code_);
 		peer_get_code(local_peer_, connection_, code_).send();
 
@@ -384,6 +385,8 @@ void peer_set_code::feed(const std::string &line, int &type, size_t &expected_si
 
 		connection_->foreign_peer()->set_out_layer(layer);
 		connection_->foreign_peer()->set_in_layer(layer);
+
+		local_peer_.set_integrated(true);
 
 		type = DDSN_MESSAGE_TYPE_END;
 	} else {
@@ -396,7 +399,6 @@ void peer_set_code::feed(const std::string &line, int &type, size_t &expected_si
 		string field_value = line.substr(colon_pos + 2);
 
 		if (field_name == "Code") {
-			cout << "Code I got (1): " << field_value << endl;
 			code_ = code(field_value, '_');
 		}
 
@@ -438,17 +440,12 @@ void peer_get_code::feed(const std::string &line, int &type, size_t &expected_si
 	if (line == "") {
 		// first, check if the code is correct
 
-		cout << "mine: " << local_peer_.code() << endl;
-		cout << "foreign: " << code_ << endl;
-
 		if (local_peer_.code().layers() + 1 != code_.layers()) {
-			cout << "Wrong code!" << endl;
 			return;
 		}
 
 		for (int i = 0; i < local_peer_.code().layers(); i++) {
 			if (code_.layer_code(i) != code_.layer_code(i)) {
-				cout << "Wrong code!" << endl;
 				return;
 			}
 		}
@@ -608,7 +605,6 @@ void peer_connect::first_action(int &type, size_t &expected_size) {
 }
 
 void peer_connect::feed(const std::string &line, int &type, size_t &expected_size) {
-
 }
 
 void peer_connect::feed(const char *data, size_t size, int &type, size_t &expected_size) {
@@ -639,19 +635,61 @@ peer_store_block::~peer_store_block() {
 }
 
 void peer_store_block::first_action(int &type, size_t &expected_size) {
-
+	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
 void peer_store_block::feed(const std::string &line, int &type, size_t &expected_size) {
+	if (line == "") {
+		type = DDSN_MESSAGE_TYPE_BYTES;
+		expected_size = size_;
+	}
+	else {
+		size_t colon_pos = line.find(": ");
+		if (colon_pos == string::npos) {
+			type = DDSN_MESSAGE_TYPE_ERROR;
+			return;
+		}
+		string field_name = line.substr(0, colon_pos);
+		string field_value = line.substr(colon_pos + 2);
 
+		if (field_name == "Code") {
+			code_ = code(field_value, '_');
+		} else if (field_name == "Name") {
+			name_ = field_value;
+		} else if (field_name == "Size") {
+			try {
+				size_ = stoi(field_value);
+			} catch (...) {
+
+			}
+		}
+
+		type = DDSN_MESSAGE_TYPE_STRING;
+	}
 }
 
 void peer_store_block::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+	block block(name_);
 
+	block.set_data(data, size_);
+
+	if (block.code() != code_) {
+		cout << "Block code is wrong" << endl;
+		return;
+	}
+
+	local_peer_.store(block);
+
+	type = DDSN_MESSAGE_TYPE_END;
 }
 
 void peer_store_block::send() {
-
+	peer_message::send("STORE BLOCK\n"
+		"Code: " + block_->code().string('_') + "\n"
+		"Name: " + block_->name() + "\n"
+		"Size: " + boost::lexical_cast<string>(block_->size()) + "\n"
+		"\n");
+	peer_message::send(block_->data(), block_->size());
 }
 
 // LOAD BLOCK
@@ -671,11 +709,34 @@ peer_load_block::~peer_load_block() {
 }
 
 void peer_load_block::first_action(int &type, size_t &expected_size) {
+	type = DDSN_MESSAGE_TYPE_STRING;
+}
 
+void action_peer_load_block(local_peer &local_peer, peer_connection::pointer connection, block &block) {
+	peer_deliver_block(local_peer, connection, &block).send();
 }
 
 void peer_load_block::feed(const std::string &line, int &type, size_t &expected_size) {
+	if (line == "") {
+		local_peer_.load(code_, boost::bind(&action_peer_load_block, local_peer_, connection_, _1));
 
+		type = DDSN_MESSAGE_TYPE_END;
+	}
+	else {
+		size_t colon_pos = line.find(": ");
+		if (colon_pos == string::npos) {
+			type = DDSN_MESSAGE_TYPE_ERROR;
+			return;
+		}
+		string field_name = line.substr(0, colon_pos);
+		string field_value = line.substr(colon_pos + 2);
+
+		if (field_name == "Code") {
+			code_ = code(field_value, '_');
+		}
+
+		type = DDSN_MESSAGE_TYPE_STRING;
+	}
 }
 
 void peer_load_block::feed(const char *data, size_t size, int &type, size_t &expected_size) {
@@ -683,5 +744,93 @@ void peer_load_block::feed(const char *data, size_t size, int &type, size_t &exp
 }
 
 void peer_load_block::send() {
+	peer_message::send("LOAD BLOCK\n"
+		"Code: " + code_.string('_') + "\n"
+		"\n");
+}
 
+// DELIVER BLOCK
+
+peer_deliver_block::peer_deliver_block(local_peer &local_peer, peer_connection::pointer connection) :
+peer_message(local_peer, connection) {
+
+}
+
+peer_deliver_block::peer_deliver_block(local_peer &local_peer, peer_connection::pointer connection, const block *block) :
+peer_message(local_peer, connection), block_(block) {
+
+}
+
+peer_deliver_block::~peer_deliver_block() {
+
+}
+
+void peer_deliver_block::first_action(int &type, size_t &expected_size) {
+	type = DDSN_MESSAGE_TYPE_STRING;
+}
+
+void peer_deliver_block::feed(const std::string &line, int &type, size_t &expected_size) {
+	if (line == "") {
+		if (size_ == 0) {
+			block block(code_);
+			local_peer_.do_load_actions(block);
+
+			type = DDSN_MESSAGE_TYPE_END;
+		}
+		else {
+			expected_size = size_;
+			type = DDSN_MESSAGE_TYPE_BYTES;
+		}
+	}
+	else {
+		size_t colon_pos = line.find(": ");
+		if (colon_pos == string::npos) {
+			type = DDSN_MESSAGE_TYPE_ERROR;
+			return;
+		}
+		string field_name = line.substr(0, colon_pos);
+		string field_value = line.substr(colon_pos + 2);
+
+		if (field_name == "Code") {
+			code_ = code(field_value, '_');
+		} else if (field_name == "Name") {
+			name_ = field_value;
+		} else if (field_name == "Size") {
+			try {
+				size_ = stoi(field_value);
+			} catch (...) {
+
+			}
+		}
+
+		type = DDSN_MESSAGE_TYPE_STRING;
+	}
+}
+
+void peer_deliver_block::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+	block block(name_);
+
+	block.set_data(data, size_);
+
+	if (block.code() != code_) {
+		cout << "Wrong block code" << endl;
+	} else {
+		local_peer_.do_load_actions(block);
+	}
+}
+
+void peer_deliver_block::send() {
+	if (block_->size() == 0) {
+		peer_message::send("DELIVER BLOCK\n"
+			"Code: " + block_->code().string() + "\n"
+			"Size: 0\n"
+			"\n");
+	} else {
+		peer_message::send("DELIVER BLOCK\n"
+			"Code: " + block_->code().string() + "\n"
+			"Name: " + block_->name() + "\n"
+			"Size: " + boost::lexical_cast<string>(block_->size()) + "\n"
+			"\n");
+		peer_message::send(block_->data(), block_->size());
+	}
 }

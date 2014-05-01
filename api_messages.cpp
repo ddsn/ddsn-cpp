@@ -4,6 +4,7 @@
 #include "definitions.h"
 #include "utilities.h"
 
+#include <boost/bind.hpp>
 #include <boost/lexical_cast.hpp>
 
 using namespace ddsn;
@@ -233,17 +234,18 @@ void api_in_load_file::first_action(int &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
+static void action_api_load_block(api_connection::pointer connection, block &block) {
+	if (block.size() > 0) {
+		api_out_load_file(block.name(), block.size(), block.code(), block.data()).send(connection);
+	}
+	else {
+		api_out_load_file(block.code()).send(connection);
+	}
+}
+
 void api_in_load_file::feed(const string &line, int &type, size_t &expected_size) {
 	if (line == "") {
-		block block(code_);
-		local_peer_.load(block);
-
-		if (block.size() > 0) {
-			api_out_load_file(block.name(), block.size(), code_, block.data()).send(connection_);
-		} else {
-			api_out_load_file(code_).send(connection_);
-		}
-
+		local_peer_.load(code_, boost::bind(&action_api_load_block, connection_, _1));
 		type = DDSN_MESSAGE_TYPE_END;
 	} else {
 		size_t colon_pos = line.find(": ");
@@ -282,7 +284,9 @@ void api_in_connect_peer::first_action(int &type, size_t &expected_size) {
 
 void api_in_connect_peer::feed(const string &line, int &type, size_t &expected_size) {
 	if (line == "") {
-		local_peer_.connect(host_, port_, shared_ptr<foreign_peer>(new foreign_peer()), "queued");
+		if (!local_peer_.integrated()) {
+			local_peer_.connect(host_, port_, shared_ptr<foreign_peer>(new foreign_peer()), "queued");
+		}
 
 		type = DDSN_MESSAGE_TYPE_END;
 	} else {

@@ -174,6 +174,9 @@ public:
 	void send();
 private:
 	const block *block_;
+	std::string name_;
+	size_t size_;
+	code code_;
 };
 
 class peer_load_block : public peer_message {
@@ -189,6 +192,24 @@ public:
 	void send();
 private:
 	code code_;
+};
+
+class peer_deliver_block : public peer_message {
+public:
+	peer_deliver_block(local_peer &local_peer, peer_connection::pointer connection);
+	peer_deliver_block(local_peer &local_peer, peer_connection::pointer connection, const block *block);
+	~peer_deliver_block();
+
+	void first_action(int &type, size_t &expected_size);
+	void feed(const std::string &line, int &type, size_t &expected_size);
+	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+
+	void send();
+private:
+	const block *block_;
+	size_t size_;
+	code code_;
+	std::string name_;
 };
 
 }

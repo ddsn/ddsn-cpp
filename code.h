@@ -28,6 +28,7 @@ public:
 
 	code &operator=(const code &code);
 	bool operator==(const code &code) const;
+	bool operator!=(const code &code) const;
 
 	std::string string(char delim = ':') const;
 

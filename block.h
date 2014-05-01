@@ -14,7 +14,7 @@ public:
 	~block();
 
 	void set_data(const char *data, size_t size);
-	char *data();
+	const char *data() const;
 	const ddsn::code &code() const;
 	const std::string &name() const;
 	size_t size() const;

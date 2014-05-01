@@ -156,6 +156,10 @@ bool code::operator==(const code &code) const {
 	return true;
 }
 
+bool code::operator!=(const code &code) const {
+	return !(*this == code);
+}
+
 code &code::operator=(const code &code) {
 	int size = (code.layers_ - 1) / 8 + 1;
 	delete[] code_;
