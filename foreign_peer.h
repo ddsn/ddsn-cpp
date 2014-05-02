@@ -30,6 +30,7 @@ public:
 	int port() const;
 	bool connected() const;
 	std::shared_ptr<peer_connection> connection() const;
+	bool integrated() const;
 
 	void set_id(const peer_id &id);
 	void set_public_key_str(const std::string &public_key);
@@ -41,6 +42,7 @@ public:
 	void set_queued(bool queued);
 	void set_host(const std::string &host);
 	void set_port(int port);
+	void set_integrated(bool integrated);
 private:
 	peer_id id_;
 	std::shared_ptr<peer_connection> peer_connection_;
@@ -53,6 +55,7 @@ private:
 	std::string host_;
 	int port_;
 	bool queued_;
+	bool integrated_;
 };
 
 }

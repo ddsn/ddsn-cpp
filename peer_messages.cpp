@@ -24,6 +24,8 @@ peer_message *peer_message::create_message(local_peer &local_peer, peer_connecti
 		return new peer_set_code(local_peer, connection);
 	} else if (first_line == "GET CODE") {
 		return new peer_get_code(local_peer, connection);
+	} else if (first_line == "INTEGRATED") {
+		return new peer_integrated(local_peer, connection);
 	} else if (first_line == "INTRODUCE PEER") {
 		return new peer_introduce(local_peer, connection);
 	} else if (first_line == "CONNECT IN") {
@@ -388,7 +390,12 @@ void peer_set_code::feed(const std::string &line, int &type, size_t &expected_si
 		connection_->foreign_peer()->set_out_layer(layer);
 		connection_->foreign_peer()->set_in_layer(layer);
 
+		local_peer_.set_mentor(connection_->foreign_peer());
+
+		// TODO: Wait for peer introductions
 		local_peer_.set_integrated(true);
+
+		peer_integrated(local_peer_, connection_).send();
 
 		type = DDSN_MESSAGE_TYPE_END;
 	} else {
@@ -467,8 +474,6 @@ void peer_get_code::feed(const std::string &line, int &type, size_t &expected_si
 		// TODO: Introcude peers
 
 		cout << "Should introduce peers now..." << endl;
-
-		local_peer_.set_splitting(false);
 
 		type = DDSN_MESSAGE_TYPE_END;
 	} else {
@@ -622,6 +627,38 @@ void peer_connect::send() {
 		"\n");
 }
 
+// INTEGRATED
+
+peer_integrated::peer_integrated(local_peer &local_peer, peer_connection::pointer connection) :
+peer_message(local_peer, connection) {
+
+}
+
+peer_integrated::~peer_integrated() {
+
+}
+
+void peer_integrated::first_action(int &type, size_t &expected_size) {
+	connection_->foreign_peer()->set_integrated(true);
+
+	// hand block
+	local_peer_.redistribute_block();
+
+	type = DDSN_MESSAGE_TYPE_END;
+}
+
+void peer_integrated::feed(const std::string &line, int &type, size_t &expected_size) {
+
+}
+
+void peer_integrated::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+
+}
+
+void peer_integrated::send() {
+	peer_message::send("INTEGRATED\n");
+}
+
 // STORE BLOCK
 
 peer_store_block::peer_store_block(local_peer &local_peer, peer_connection::pointer connection) :
@@ -686,7 +723,7 @@ void peer_store_block::feed(const char *data, size_t size, int &type, size_t &ex
 		return;
 	}
 
-	local_peer_.store(block, boost::bind(&action_peer_store_block, local_peer_, connection_, _1, _2, _3));
+	local_peer_.store(block, boost::bind(&action_peer_store_block, boost::ref(local_peer_), connection_, _1, _2, _3));
 
 	type = DDSN_MESSAGE_TYPE_END;
 }
@@ -726,7 +763,7 @@ void action_peer_load_block(local_peer &local_peer, peer_connection::pointer con
 
 void peer_load_block::feed(const std::string &line, int &type, size_t &expected_size) {
 	if (line == "") {
-		local_peer_.load(code_, boost::bind(&action_peer_load_block, local_peer_, connection_, _1));
+		local_peer_.load(code_, boost::bind(&action_peer_load_block, boost::ref(local_peer_), connection_, _1));
 
 		type = DDSN_MESSAGE_TYPE_END;
 	}

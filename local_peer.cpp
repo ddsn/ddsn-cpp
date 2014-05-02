@@ -6,6 +6,7 @@
 
 #include <openssl/pem.h>
 #include <openssl/sha.h>
+#include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
 #include <fstream>
@@ -16,7 +17,7 @@ using namespace std;
 using boost::asio::ip::tcp;
 
 local_peer::local_peer(io_service &io_service, string host, int port) :
-io_service_(io_service), integrated_(false), blocks_(0), keypair_(nullptr), host_(host), port_(port) {
+io_service_(io_service), integrated_(false), keypair_(nullptr), host_(host), port_(port) {
 
 }
 
@@ -40,16 +41,8 @@ const code &local_peer::code() const {
 	return code_;
 }
 
-bool local_peer::integrated() const {
-	return integrated_;
-}
-
 void local_peer::set_code(const ddsn::code &code) {
 	code_ = code;
-}
-
-void local_peer::set_integrated(bool integrated) {
-	integrated_ = integrated;
 }
 
 const string &local_peer::host() const {
@@ -141,12 +134,11 @@ void local_peer::store(const block &block, boost::function<void(const ddsn::code
 		if (block.save_to_filesystem() == 0) {
 			action(block.code(), block.name(), true);
 
-			blocks_++;
 			stored_blocks_.insert(block.code());
 
-			if (blocks_ > capacity_ && !splitting_) {
+			if (stored_blocks_.size() > capacity_ && !splitting_) {
 				// we have too many blocks and we are not splitting right now (i.e. nothing's be done about that yet)
-				cout << "Capacity exhausted (" << blocks_ << " blocks stored, capacity: " << capacity_ << ")" << endl;
+				cout << "Capacity exhausted (" << stored_blocks_.size() << " blocks stored, capacity: " << capacity_ << ")" << endl;
 
 				shared_ptr<foreign_peer> peer = connected_queued_peer();
 				if (peer) {
@@ -198,7 +190,7 @@ void local_peer::load(const ddsn::code &block_code, boost::function<void(block&)
 }
 
 int local_peer::blocks() const {
-	return blocks_;
+	return stored_blocks_.size();
 }
 
 int local_peer::capacity() const {
@@ -209,30 +201,72 @@ void local_peer::set_capacity(int capacity) {
 	capacity_ = capacity;
 }
 
-void local_peer::do_load_actions(block &block) const {
-	for (auto it = load_actions_.begin(); it != load_actions_.end(); ++it) {
+void ddsn::action_peer_stored_block(local_peer &local_peer, const block &block, const ddsn::code &code, bool success) {
+	if (success) {
+		local_peer.stored_blocks_.erase(block.code());
+		local_peer.redistribute_block();
+	}
+}
+
+void local_peer::redistribute_block() {
+	for (auto it = stored_blocks_.begin(); it != stored_blocks_.end(); ++it) {
+		if (!code_.contains(*it)) {
+			block block(*it);
+			block.load_from_filesystem();
+
+			store(block, boost::bind(&action_peer_stored_block, boost::ref(*this), _1, _2, _3));
+			return;
+		}
+	}
+	splitting_ = false;
+}
+
+void local_peer::do_load_actions(block &block) {
+	for (auto it = load_actions_.begin(); it != load_actions_.end();) {
 		if (it->first == block.code()) {
 			it->second(block);
+			it = load_actions_.erase(it);
+		} else {
+			++it;
 		}
 	}
 }
 
-void local_peer::do_store_actions(const ddsn::code &code, const std::string &name, bool success) const {
-	for (auto it = store_actions_.begin(); it != store_actions_.end(); ++it) {
+void local_peer::do_store_actions(const ddsn::code &code, const std::string &name, bool success) {
+	for (auto it = store_actions_.begin(); it != store_actions_.end();) {
 		if (it->first == code) {
 			it->second(code, name, success);
+			it = store_actions_.erase(it);
+		} else {
+			++it;
 		}
 	}
 }
 
 // network management
 
-void local_peer::set_splitting(bool splitting) {
-	splitting_ = splitting;
+bool local_peer::integrated() const {
+	return integrated_;
 }
 
 bool local_peer::splitting() const {
 	return splitting_;
+}
+
+std::shared_ptr<foreign_peer> local_peer::mentor() const {
+	return mentor_;
+}
+
+void local_peer::set_splitting(bool splitting) {
+	splitting_ = splitting;
+}
+
+void local_peer::set_integrated(bool integrated) {
+	integrated_ = integrated;
+}
+
+void local_peer::set_mentor(std::shared_ptr<foreign_peer> mentor) {
+	mentor_ = mentor;
 }
 
 // peers

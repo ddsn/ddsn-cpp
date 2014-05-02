@@ -422,6 +422,7 @@ void api_out_peer_info::send(api_connection::pointer connection) {
 		"Peer-id: " + local_peer_.id().string() + "\n"
 		"Peer-code: " + local_peer_.code().string() + "\n"
 		"Integrated: " + (local_peer_.integrated() ? "yes" : "no") + "\n"
+		"Mentor: " + (local_peer_.mentor() ? local_peer_.mentor()->id().string() : "") + "\n"
 		"Blocks: " + boost::lexical_cast<string>(local_peer_.blocks()) + "\n"
 		"Capacity: " + boost::lexical_cast<string>(local_peer_.capacity()) + "\n"
 		"Peers: " + boost::lexical_cast<string>(local_peer_.foreign_peers().size()) + "\n\n");

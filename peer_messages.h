@@ -161,6 +161,18 @@ private:
 	code code_;
 };
 
+class peer_integrated : public peer_message {
+public:
+	peer_integrated(local_peer &local_peer, peer_connection::pointer connection);
+	~peer_integrated();
+
+	void first_action(int &type, size_t &expected_size);
+	void feed(const std::string &line, int &type, size_t &expected_size);
+	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+
+	void send();
+};
+
 class peer_store_block : public peer_message {
 public:
 	peer_store_block(local_peer &local_peer, peer_connection::pointer connection);

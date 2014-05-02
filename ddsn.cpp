@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
 		("api-port", po::value<int>()->default_value(4495), "set api port")
 		("api-password", po::value<string>()->default_value(""), "set api password")
 		("integrated", "start as peer of a new network")
-		("capacity", po::value<int>()->default_value(1), "maximum number of blocks to store")
+		("capacity", po::value<int>()->default_value(5), "maximum number of blocks to store")
 		;
 
 	po::variables_map vm;

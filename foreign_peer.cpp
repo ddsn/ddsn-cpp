@@ -5,7 +5,7 @@
 using namespace ddsn;
 using namespace std;
 
-foreign_peer::foreign_peer() : public_key_(nullptr), in_layer_(-1), out_layer_(-1), host_(""), port_(-1) {
+foreign_peer::foreign_peer() : public_key_(nullptr), in_layer_(-1), out_layer_(-1), host_(""), port_(-1), integrated_(false) {
 
 }
 
@@ -43,6 +43,10 @@ int foreign_peer::out_layer() const {
 
 bool foreign_peer::queued() const {
 	return queued_;
+}
+
+bool foreign_peer::integrated() const {
+	return integrated_;
 }
 
 void foreign_peer::set_id(const peer_id &id) {
@@ -104,4 +108,8 @@ void foreign_peer::set_host(const std::string &host) {
 
 void foreign_peer::set_port(int port) {
 	port_ = port;
+}
+
+void foreign_peer::set_integrated(bool integrated) {
+	integrated_ = integrated;
 }
