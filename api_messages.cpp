@@ -158,7 +158,7 @@ void api_in_store_file::feed(const string &line, int &type, size_t &expected_siz
 			} else if (field_name == "File-size") {
 				file_size_ = stoi(field_value);
 
-				if (file_size_ >= 8 * 1024 * 1024) {
+				if (file_size_ > 8 * 1024 * 1024) {
 					type = DDSN_MESSAGE_TYPE_ERROR;
 					return;
 				}
