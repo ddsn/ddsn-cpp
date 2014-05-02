@@ -69,7 +69,12 @@ code::code(std::string code, char delim) {
 }
 
 code::code(const code &code) {
-	int size = (code.layers_ - 1) / 8 + 1;
+	int size;
+	if (code.layers_ == 0) {
+		size = 1;
+	} else {
+		size = (code.layers_ - 1) / 8 + 1;
+	}
 	code_ = new BYTE[size];
 	layers_ = code.layers_;
 	memcpy(code_, code.code_, size);
@@ -165,7 +170,12 @@ bool code::operator!=(const code &code) const {
 }
 
 code &code::operator=(const code &code) {
-	size_t size = (code.layers_ - 1) / 8 + 1;
+	int size;
+	if (code.layers_ == 0) {
+		size = 1;
+	} else {
+		size = (code.layers_ - 1) / 8 + 1;
+	}
 	delete[] code_;
 	code_ = new BYTE[size];
 	layers_ = code.layers_;

@@ -255,3 +255,12 @@ int block::load_from_filesystem() {
 		return 1;
 	}
 }
+
+int block::delete_from_filesystem() {
+	int ret_code = std::remove(("blocks/" + code_.string('_')).c_str());
+	if (ret_code == 0) {
+		return 0;
+	} else {
+		return 1;
+	}
+}

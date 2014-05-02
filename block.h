@@ -35,6 +35,7 @@ public:
 
 	int load_from_filesystem();
 	int save_to_filesystem() const;
+	int delete_from_filesystem();
 private:
 	ddsn::code code_;
 	BYTE signature_[256];

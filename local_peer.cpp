@@ -206,9 +206,11 @@ void local_peer::set_capacity(int capacity) {
 	capacity_ = capacity;
 }
 
-void ddsn::action_peer_stored_block(local_peer &local_peer, const block &block, const ddsn::code &code, bool success) {
+void ddsn::action_peer_stored_block(local_peer &local_peer, const ddsn::code &code, const string &name, bool success) {
 	if (success) {
-		local_peer.stored_blocks_.erase(block.code());
+		block block(code);
+		block.delete_from_filesystem();
+		local_peer.stored_blocks_.erase(code);
 		local_peer.redistribute_block();
 	}
 }

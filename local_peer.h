@@ -17,7 +17,7 @@ namespace ddsn {
 
 class local_peer;
 
-void action_peer_stored_block(local_peer &local_peer, const block &block, const ddsn::code &code, bool success);
+void action_peer_stored_block(local_peer &local_peer, const ddsn::code &code, const std::string &name, bool success);
 
 class api_server;
 class foreign_peer;
@@ -85,8 +85,8 @@ private:
 
 	UINT32 capacity_;
 	std::unordered_set<ddsn::code> stored_blocks_;
-	std::list<std::pair<ddsn::code, boost::function<void(block&)>>> load_actions_;
-	std::list<std::pair<ddsn::code, boost::function<void(const ddsn::code&, const std::string &, bool)>>> store_actions_;
+	std::list<std::pair<ddsn::code, boost::function<void(block &)>>> load_actions_;
+	std::list<std::pair<ddsn::code, boost::function<void(const ddsn::code &, const std::string &, bool)>>> store_actions_;
 
 	bool integrated_;
 	bool splitting_;
@@ -94,7 +94,7 @@ private:
 
 	std::unordered_map<peer_id, std::shared_ptr<foreign_peer>> foreign_peers_;
 
-	friend void ddsn::action_peer_stored_block(local_peer &local_peer, const block &block, const ddsn::code &code, bool success);
+	friend void ddsn::action_peer_stored_block(local_peer &local_peer, const ddsn::code &code, const std::string &name, bool success);
 };
 
 }
