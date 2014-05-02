@@ -77,7 +77,7 @@ void block::seal() {
 	SHA256_Update(&sha256, data_, size_);
 	SHA256_Final(data_hash, &sha256);
 
-	size_t siglen;
+	UINT32 siglen;
 	RSA_sign(NID_sha256, data_hash, 32, signature_, &siglen, owner_);
 
 	// code
