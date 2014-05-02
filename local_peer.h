@@ -71,8 +71,6 @@ public:
 	const std::unordered_map<peer_id, std::shared_ptr<foreign_peer>> &foreign_peers() const;
 	std::shared_ptr<foreign_peer> connected_queued_peer() const;
 private:
-	void create_id_from_key();
-
 	std::shared_ptr<foreign_peer> out_peer(int layer, bool connected = true) const;
 
 	boost::asio::io_service &io_service_;
@@ -85,7 +83,7 @@ private:
 
 	RSA *keypair_;
 
-	unsigned int capacity_;
+	UINT32 capacity_;
 	std::unordered_set<ddsn::code> stored_blocks_;
 	std::list<std::pair<ddsn::code, boost::function<void(block&)>>> load_actions_;
 	std::list<std::pair<ddsn::code, boost::function<void(const ddsn::code&, const std::string &, bool)>>> store_actions_;

@@ -3,6 +3,7 @@
 #include "api_server.h"
 #include "peer_connection.h"
 #include "peer_messages.h"
+#include "utilities.h"
 
 #include <openssl/pem.h>
 #include <openssl/sha.h>
@@ -78,7 +79,9 @@ int local_peer::load_key() {
 		return 1;
 	}
 
-	create_id_from_key();
+	BYTE hash[32];
+	hash_from_rsa(keypair_, hash);
+	id_.set_id(hash);
 
 	return 0;
 }
@@ -111,7 +114,9 @@ int local_peer::save_key() {
 void local_peer::generate_key() {
 	keypair_ = RSA_generate_key(2048, 3, NULL, NULL);
 
-	create_id_from_key();
+	BYTE hash[32];
+	hash_from_rsa(keypair_, hash);
+	id_.set_id(hash);
 }
 
 void local_peer::load_area_keys() {
@@ -330,24 +335,6 @@ std::shared_ptr<foreign_peer> local_peer::connected_queued_peer() const {
 }
 
 // private methods
-
-void local_peer::create_id_from_key() {
-	unsigned char *buf, *p;
-	int len = i2d_RSAPublicKey(keypair_, nullptr);
-	buf = new unsigned char[len];
-	p = buf;
-	i2d_RSAPublicKey(keypair_, &p);
-
-	unsigned char hash[32];
-	SHA256_CTX sha256;
-	SHA256_Init(&sha256);
-	SHA256_Update(&sha256, buf, len);
-	SHA256_Final(hash, &sha256);
-
-	delete[] buf;
-
-	id_.set_id(hash);
-}
 
 std::shared_ptr<foreign_peer> local_peer::out_peer(int layer, bool connected) const {
 	for (auto it = foreign_peers_.begin(); it != foreign_peers_.end(); ++it) {

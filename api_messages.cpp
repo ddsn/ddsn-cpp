@@ -54,7 +54,7 @@ void api_out_message::send(api_connection::pointer connection, const std::string
 	connection->send(string);
 }
 
-void api_out_message::send(api_connection::pointer connection, const char *bytes, size_t size) {
+void api_out_message::send(api_connection::pointer connection, const BYTE *bytes, size_t size) {
 	connection->send(bytes, size);
 }
 
@@ -89,7 +89,7 @@ void api_in_hello::feed(const string &line, int &type, size_t &expected_size) {
 	}
 }
 
-void api_in_hello::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+void api_in_hello::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_ERROR;
 }
 
@@ -115,7 +115,7 @@ void api_in_ping::feed(const string &line, int &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_ERROR;
 }
 
-void api_in_ping::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+void api_in_ping::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_ERROR;
 }
 
@@ -141,7 +141,7 @@ void api_in_store_file::feed(const string &line, int &type, size_t &expected_siz
 		if (line == "") { // End of file information
 			state_ = 1;
 
-			data_ = new char[file_size_];
+			data_ = new BYTE[file_size_];
 
 			type = DDSN_MESSAGE_TYPE_STRING;
 		} else {
@@ -164,8 +164,6 @@ void api_in_store_file::feed(const string &line, int &type, size_t &expected_siz
 				}
 			} else if (field_name == "Chunks") {
 				chunks_ = stoi(field_value);
-			} else {
-				// unknown field
 			}
 
 			type = DDSN_MESSAGE_TYPE_STRING;
@@ -187,8 +185,6 @@ void api_in_store_file::feed(const string &line, int &type, size_t &expected_siz
 
 			if (field_name == "Chunk-size") {
 				chunk_size_ = stoi(field_value);
-			} else {
-				// unknown field
 			}
 
 			type = DDSN_MESSAGE_TYPE_STRING;
@@ -196,11 +192,11 @@ void api_in_store_file::feed(const string &line, int &type, size_t &expected_siz
 	}
 }
 
-void action_api_store_block(api_connection::pointer connection, const code &code, const string &name, bool success) {
+static void action_api_store_block(api_connection::pointer connection, const code &code, const string &name, bool success) {
 	api_out_store_file(code, name, success).send(connection);
 }
 
-void api_in_store_file::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+void api_in_store_file::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_STRING;
 
 	if (chunk_ < chunks_) {
@@ -214,6 +210,8 @@ void api_in_store_file::feed(const char *data, size_t size, int &type, size_t &e
 
 		block block(file_name_);
 		block.set_data(data_, file_size_);
+		block.set_owner(local_peer_.keypair());
+		block.seal();
 
 		local_peer_.store(block, boost::bind(&action_api_store_block, connection_, _1, _2, _3));
 
@@ -265,7 +263,7 @@ void api_in_load_file::feed(const string &line, int &type, size_t &expected_size
 	}
 }
 
-void api_in_load_file::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+void api_in_load_file::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_ERROR;
 }
 
@@ -308,7 +306,7 @@ void api_in_connect_peer::feed(const string &line, int &type, size_t &expected_s
 	}
 }
 
-void api_in_connect_peer::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+void api_in_connect_peer::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
 }
 
 // PEER INFO
@@ -331,7 +329,7 @@ void api_in_peer_info::first_action(int &type, size_t &expected_size) {
 void api_in_peer_info::feed(const string &line, int &type, size_t &expected_size) {
 }
 
-void api_in_peer_info::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+void api_in_peer_info::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
 }
 
 /*
@@ -385,7 +383,7 @@ api_out_load_file::api_out_load_file(const code &block_code) :
 block_code_(block_code), data_(nullptr) {
 }
 
-api_out_load_file::api_out_load_file(const std::string &file_name, size_t file_size, const code &block_code, const char *data) :
+api_out_load_file::api_out_load_file(const std::string &file_name, size_t file_size, const code &block_code, const BYTE *data) :
 file_name_(file_name), file_size_(file_size), block_code_(block_code), data_(data) {
 }
 

@@ -1,6 +1,8 @@
 #ifndef DDSN_PEER_ID_H
 #define DDSN_PEER_ID_H
 
+#include "definitions.h"
+
 #include <string>
 
 namespace ddsn {
@@ -8,12 +10,12 @@ namespace ddsn {
 class peer_id {
 public:
 	peer_id();
-	peer_id(unsigned char id[32]);
+	peer_id(BYTE id[32]);
 	~peer_id();
 
-	const unsigned char *id() const;
+	const BYTE *id() const;
 
-	void set_id(unsigned char id[32]);
+	void set_id(BYTE id[32]);
 
 	peer_id &operator=(const peer_id &peer_id);
 	bool operator==(const peer_id &peer_id) const;
@@ -23,9 +25,8 @@ public:
 
 	friend std::ostream& operator<<(std::ostream& stream, const peer_id& peer_id);
 	friend std::hash<ddsn::peer_id>;
-
 private:
-	unsigned char id_[32];
+	BYTE id_[32];
 };
 
 }

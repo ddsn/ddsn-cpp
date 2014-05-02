@@ -2,6 +2,7 @@
 #define DDSN_PEER_MESSAGES_H
 
 #include "peer_connection.h"
+#include "definitions.h"
 #include "foreign_peer.h"
 #include "local_peer.h"
 
@@ -25,12 +26,12 @@ public:
 	virtual void feed(const std::string &line, int &type, size_t &expected_size) = 0;
 
 	// provides this message with a byte array
-	virtual void feed(const char *data, size_t size, int &type, size_t &expected_size) = 0;
+	virtual void feed(const BYTE *data, size_t size, int &type, size_t &expected_size) = 0;
 
 	virtual void send() = 0;
 protected:
 	void send(const std::string &string);
-	void send(const char *bytes, size_t size);
+	void send(const BYTE *bytes, size_t size);
 
 	local_peer &local_peer_;
 	peer_connection::pointer connection_;
@@ -44,7 +45,7 @@ public:
 
 	void first_action(int &type, size_t &expected_size);
 	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
 
 	void send();
 private:
@@ -60,7 +61,7 @@ public:
 
 	void first_action(int &type, size_t &expected_size);
 	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
 
 	void send();
 private:
@@ -76,11 +77,10 @@ public:
 
 	void first_action(int &type, size_t &expected_size);
 	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
 
 	void send();
 private:
-	int signature_length_;
 	std::string message_;
 };
 
@@ -91,7 +91,7 @@ public:
 
 	void first_action(int &type, size_t &expected_size);
 	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
 
 	void send();
 };
@@ -104,7 +104,7 @@ public:
 
 	void first_action(int &type, size_t &expected_size);
 	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
 
 	void send();
 private:
@@ -119,7 +119,7 @@ public:
 
 	void first_action(int &type, size_t &expected_size);
 	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
 
 	void send();
 private:
@@ -134,7 +134,7 @@ public:
 
 	void first_action(int &type, size_t &expected_size);
 	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
 
 	void send();
 private:
@@ -153,7 +153,7 @@ public:
 
 	void first_action(int &type, size_t &expected_size);
 	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
 
 	void send();
 private:
@@ -168,7 +168,7 @@ public:
 
 	void first_action(int &type, size_t &expected_size);
 	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
 
 	void send();
 };
@@ -181,14 +181,18 @@ public:
 
 	void first_action(int &type, size_t &expected_size);
 	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
 
 	void send();
 private:
 	const block *block_;
+
+	UINT32 state_;
 	std::string name_;
 	size_t size_;
 	code code_;
+	BYTE signature_[256];
+	std::string public_key_;
 };
 
 class peer_load_block : public peer_message {
@@ -199,7 +203,7 @@ public:
 
 	void first_action(int &type, size_t &expected_size);
 	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
 
 	void send();
 private:
@@ -214,7 +218,7 @@ public:
 
 	void first_action(int &type, size_t &expected_size);
 	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
 
 	void send();
 private:
@@ -231,14 +235,18 @@ public:
 
 	void first_action(int &type, size_t &expected_size);
 	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
 
 	void send();
 private:
 	const block *block_;
+
+	UINT32 state_;
+	std::string name_;
 	size_t size_;
 	code code_;
-	std::string name_;
+	BYTE signature_[256];
+	std::string public_key_;
 };
 
 }

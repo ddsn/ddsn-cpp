@@ -2,11 +2,13 @@
 
 #include "api_server.h"
 #include "definitions.h"
+#include "utilities.h"
 
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
 #include <boost/bind.hpp>
 #include <boost/lexical_cast.hpp>
+#include <cstring>
 
 using namespace ddsn;
 using namespace std;
@@ -55,7 +57,7 @@ void peer_message::send(const std::string &string) {
 	connection_->send(string);
 }
 
-void peer_message::send(const char *bytes, size_t size) {
+void peer_message::send(const BYTE *bytes, size_t size) {
 	connection_->send(bytes, size);
 }
 
@@ -98,6 +100,17 @@ void peer_hello::feed(const std::string &line, int &type, size_t &expected_size)
 			public_key_ += "-----END RSA PUBLIC KEY-----\n";
 
 			connection_->foreign_peer()->set_public_key_str(public_key_);
+
+			// check if this matches the id
+
+			BYTE hash[32];
+			hash_from_rsa(connection_->foreign_peer()->public_key(), hash);
+
+			if (memcmp(hash, connection_->foreign_peer()->id().id(), 32) != 0) {
+				cout << "Peer appears to be a fraud" << endl;
+				type = DDSN_MESSAGE_TYPE_ERROR;
+			}
+
 			connection_->foreign_peer()->set_verification_number(rand()); // TODO: make it random
 
 			cout << "PEER#" << connection_->id() << " random number: " << connection_->foreign_peer()->verification_number() << endl;
@@ -153,9 +166,9 @@ void peer_hello::feed(const std::string &line, int &type, size_t &expected_size)
 	}
 }
 
-void peer_hello::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+void peer_hello::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
 	if (size == 32) {
-		peer_id foreign_id((unsigned char *)data);
+		peer_id foreign_id((BYTE *)data);
 
 		if (foreign_id == local_peer_.id()) {
 			// that's myself!
@@ -183,7 +196,7 @@ void peer_hello::feed(const char *data, size_t size, int &type, size_t &expected
 
 void peer_hello::send() {
 	peer_message::send("HELLO\n");
-	peer_message::send((char *)local_peer_.id().id(), 32);
+	peer_message::send(local_peer_.id().id(), 32);
 
 	// send public key in pem format
 
@@ -193,7 +206,7 @@ void peer_hello::send() {
 
 	size_t pub_len = BIO_pending(pub);
 
-	char *pub_key = new char[pub_len];
+	BYTE *pub_key = new BYTE[pub_len];
 
 	BIO_read(pub, pub_key, pub_len);
 
@@ -235,7 +248,7 @@ void peer_prove_identity::feed(const std::string &line, int &type, size_t &expec
 	}
 }
 
-void peer_prove_identity::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+void peer_prove_identity::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
 }
 
 void peer_prove_identity::send() {
@@ -261,68 +274,64 @@ void peer_verify_identity::set_message(const std::string &message) {
 }
 
 void peer_verify_identity::first_action(int &type, size_t &expected_size) {
-	type = DDSN_MESSAGE_TYPE_STRING;
+	type = DDSN_MESSAGE_TYPE_BYTES;
+	expected_size = 256;
 }
 
 void peer_verify_identity::feed(const std::string &line, int &type, size_t &expected_size) {
-	if (line == "") {
-		type = DDSN_MESSAGE_TYPE_BYTES;
-		expected_size = signature_length_;
-	} else {
-		size_t colon_pos = line.find(": ");
-		if (colon_pos == string::npos) {
-			type = DDSN_MESSAGE_TYPE_ERROR;
-			return;
-		}
-		string field_name = line.substr(0, colon_pos);
-		string field_value = line.substr(colon_pos + 2);
-
-		if (field_name == "Signature-length") {
-			signature_length_ = stoi(field_value);
-		}
-	}
 }
 
-void peer_verify_identity::feed(const char *data, size_t size, int &type, size_t &expected_size) {
-	if (size == signature_length_) {
-		string sign_message = "Sign this random number: " + boost::lexical_cast<std::string>(connection_->foreign_peer()->verification_number());
+void peer_verify_identity::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
+	string sign_message = "Sign this random number: " + boost::lexical_cast<std::string>(connection_->foreign_peer()->verification_number());
+	
+	BYTE message_hash[32];
 
-		int ret = RSA_verify(NID_sha1, (unsigned char *)sign_message.c_str(), sign_message.length(),
-			(unsigned char *)data, signature_length_, connection_->foreign_peer()->public_key());
+	SHA256_CTX sha256;
+	SHA256_Init(&sha256);
+	SHA256_Update(&sha256, sign_message.c_str(), sign_message.length());
+	SHA256_Final(message_hash, &sha256);
 
-		if (ret == 1) { // successful
-			connection_->foreign_peer()->set_identity_verified(true);
+	int ret = RSA_verify(NID_sha256, message_hash, 32,
+		(BYTE *)data, 256, connection_->foreign_peer()->public_key());
 
-			cout << "PEER#" << connection_->id() << " peer " << connection_->foreign_peer()->id().short_string() << " is now verified" << endl;
+	if (ret == 1) { // successful
+		connection_->foreign_peer()->set_identity_verified(true);
 
-			if (connection_->got_welcome()) {
-				local_peer_.add_foreign_peer(connection_->foreign_peer());
-			}
+		cout << "PEER#" << connection_->id() << " peer " << connection_->foreign_peer()->id().short_string() << " is now verified" << endl;
 
-			peer_welcome(local_peer_, connection_).send();
-
-			if (!connection_->introduced()) {
-				peer_hello(local_peer_, connection_, "?").send();
-				connection_->set_introduced(true);
-			}
-
-			type = DDSN_MESSAGE_TYPE_END;
-		} else {
-			cout << "PEER#" << connection_->id() << " peer claiming to be " << connection_->foreign_peer()->id().short_string() << " gave an invalid signature" << endl;
-			type = DDSN_MESSAGE_TYPE_ERROR;
+		if (connection_->got_welcome()) {
+			local_peer_.add_foreign_peer(connection_->foreign_peer());
 		}
+
+		peer_welcome(local_peer_, connection_).send();
+
+		if (!connection_->introduced()) {
+			peer_hello(local_peer_, connection_, "?").send();
+			connection_->set_introduced(true);
+		}
+
+		type = DDSN_MESSAGE_TYPE_END;
+	} else {
+		cout << "PEER#" << connection_->id() << " peer claiming to be " << connection_->foreign_peer()->id().short_string() << " gave an invalid signature" << endl;
+		type = DDSN_MESSAGE_TYPE_ERROR;
 	}
 }
 
 void peer_verify_identity::send() {
-	unsigned char *sigret = new unsigned char[RSA_size(local_peer_.keypair())];
-	unsigned int siglen;
+	BYTE *sigret = new BYTE[RSA_size(local_peer_.keypair())];
+	UINT32 siglen;
 
-	RSA_sign(NID_sha1, (unsigned char *)message_.c_str(), message_.length(), sigret, &siglen, local_peer_.keypair());
+	BYTE message_hash[32];
 
-	peer_message::send("VERIFY IDENTITY\n"
-		"Signature-length: " + boost::lexical_cast<string>(siglen) + "\n\n");
-	peer_message::send((char *)sigret, siglen);
+	SHA256_CTX sha256;
+	SHA256_Init(&sha256);
+	SHA256_Update(&sha256, message_.c_str(), message_.length());
+	SHA256_Final(message_hash, &sha256);
+
+	RSA_sign(NID_sha256, message_hash, 32, sigret, &siglen, local_peer_.keypair());
+
+	peer_message::send("VERIFY IDENTITY\n");
+	peer_message::send(sigret, 256);
 
 	delete[] sigret;
 }
@@ -352,7 +361,7 @@ void peer_welcome::feed(const std::string &line, int &type, size_t &expected_siz
 	type = DDSN_MESSAGE_TYPE_ERROR;
 }
 
-void peer_welcome::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+void peer_welcome::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_ERROR;
 }
 
@@ -415,7 +424,7 @@ void peer_set_code::feed(const std::string &line, int &type, size_t &expected_si
 	}
 }
 
-void peer_set_code::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+void peer_set_code::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
 
 }
 
@@ -493,7 +502,7 @@ void peer_get_code::feed(const std::string &line, int &type, size_t &expected_si
 	}
 }
 
-void peer_get_code::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+void peer_get_code::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
 
 }
 
@@ -558,9 +567,9 @@ void peer_introduce::feed(const std::string &line, int &type, size_t &expected_s
 	}
 }
 
-void peer_introduce::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+void peer_introduce::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
 	peer_id peer_id;
-	peer_id.set_id((unsigned char *)data);
+	peer_id.set_id((BYTE *)data);
 
 	auto it = local_peer_.foreign_peers().find(peer_id);
 	if (it != local_peer_.foreign_peers().end()) {
@@ -590,7 +599,7 @@ void peer_introduce::send() {
 		"Port: " + boost::lexical_cast<string>(port_) + "\n"
 		"Layer: " + boost::lexical_cast<string>(layer_)+"\n"
 		"\n");
-	peer_message::send((char *)peer_id_.id(), 32);
+	peer_message::send(peer_id_.id(), 32);
 }
 
 // CONNECT IN
@@ -616,7 +625,7 @@ void peer_connect::first_action(int &type, size_t &expected_size) {
 void peer_connect::feed(const std::string &line, int &type, size_t &expected_size) {
 }
 
-void peer_connect::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+void peer_connect::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
 
 }
 
@@ -651,7 +660,7 @@ void peer_integrated::feed(const std::string &line, int &type, size_t &expected_
 
 }
 
-void peer_integrated::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+void peer_integrated::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
 
 }
 
@@ -662,7 +671,7 @@ void peer_integrated::send() {
 // STORE BLOCK
 
 peer_store_block::peer_store_block(local_peer &local_peer, peer_connection::pointer connection) :
-peer_message(local_peer, connection) {
+peer_message(local_peer, connection), state_(0) {
 
 }
 
@@ -680,32 +689,42 @@ void peer_store_block::first_action(int &type, size_t &expected_size) {
 }
 
 void peer_store_block::feed(const std::string &line, int &type, size_t &expected_size) {
-	if (line == "") {
-		type = DDSN_MESSAGE_TYPE_BYTES;
-		expected_size = size_;
-	}
-	else {
-		size_t colon_pos = line.find(": ");
-		if (colon_pos == string::npos) {
-			type = DDSN_MESSAGE_TYPE_ERROR;
-			return;
-		}
-		string field_name = line.substr(0, colon_pos);
-		string field_value = line.substr(colon_pos + 2);
-
-		if (field_name == "Code") {
-			code_ = code(field_value, '_');
-		} else if (field_name == "Name") {
-			name_ = field_value;
-		} else if (field_name == "Size") {
-			try {
-				size_ = stoi(field_value);
-			} catch (...) {
-
+	if (state_ == 0) {
+		if (line == "") {
+			type = DDSN_MESSAGE_TYPE_BYTES;
+			expected_size = 256;
+		} else {
+			size_t colon_pos = line.find(": ");
+			if (colon_pos == string::npos) {
+				type = DDSN_MESSAGE_TYPE_ERROR;
+				return;
 			}
-		}
+			string field_name = line.substr(0, colon_pos);
+			string field_value = line.substr(colon_pos + 2);
 
-		type = DDSN_MESSAGE_TYPE_STRING;
+			if (field_name == "Code") {
+				code_ = code(field_value, '_');
+			} else if (field_name == "Name") {
+				name_ = field_value;
+			} else if (field_name == "Size") {
+				try {
+					size_ = stoi(field_value);
+				} catch (...) {
+
+				}
+			}
+
+			type = DDSN_MESSAGE_TYPE_STRING;
+		}
+	} else if (state_ == 1) {
+		// public key
+
+		if (line == "") {
+			type = DDSN_MESSAGE_TYPE_BYTES;
+			expected_size = size_;
+		} else {
+			public_key_ += line + "\n";
+		}
 	}
 }
 
@@ -713,19 +732,53 @@ void action_peer_store_block(local_peer &local_peer, peer_connection::pointer co
 	peer_stored_block(local_peer, connection, code, name, success).send();
 }
 
-void peer_store_block::feed(const char *data, size_t size, int &type, size_t &expected_size) {
-	block block(name_);
+void peer_store_block::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
+	if (state_ == 0) {
+		// got signature
 
-	block.set_data(data, size_);
+		memcpy(signature_, data, 256);
 
-	if (block.code() != code_) {
-		cout << "Block code is wrong" << endl;
-		return;
+		state_ = 1;
+
+		type = DDSN_MESSAGE_TYPE_STRING;
+	} else if (state_ == 1) {
+		// got data
+
+		ddsn::block new_block(name_);
+
+		// code
+		
+		new_block.set_code(code_);
+
+		// signature
+
+		new_block.set_signature(signature_);
+
+		// owner
+
+		BIO *pub = BIO_new(BIO_s_mem());
+
+		BIO_write(pub, public_key_.c_str(), public_key_.length());
+
+		RSA *owner = nullptr;
+		PEM_read_bio_RSAPublicKey(pub, &owner, NULL, NULL);
+
+		new_block.set_owner(owner);
+
+		// data
+
+		new_block.set_data(data, size_);
+
+		if (!new_block.verify()) {
+			cout << "Block is corrupted" << endl;
+			type = DDSN_MESSAGE_TYPE_ERROR;
+			return;
+		}
+
+		local_peer_.store(new_block, boost::bind(&action_peer_store_block, boost::ref(local_peer_), connection_, _1, _2, _3));
+
+		type = DDSN_MESSAGE_TYPE_END;
 	}
-
-	local_peer_.store(block, boost::bind(&action_peer_store_block, boost::ref(local_peer_), connection_, _1, _2, _3));
-
-	type = DDSN_MESSAGE_TYPE_END;
 }
 
 void peer_store_block::send() {
@@ -734,6 +787,28 @@ void peer_store_block::send() {
 		"Name: " + block_->name() + "\n"
 		"Size: " + boost::lexical_cast<string>(block_->size()) + "\n"
 		"\n");
+
+	// send signature
+
+	peer_message::send(block_->signature(), 256);
+
+	// send public key in pem format
+
+	BIO *pub = BIO_new(BIO_s_mem());
+
+	PEM_write_bio_RSAPublicKey(pub, block_->owner());
+
+	size_t pub_len = BIO_pending(pub);
+
+	BYTE *pub_key = new BYTE[pub_len];
+
+	BIO_read(pub, pub_key, pub_len);
+
+	// actually a string, but we can use byte verion of send
+	peer_message::send(pub_key, pub_len);
+	peer_message::send("\n");
+
+	// send data
 	peer_message::send(block_->data(), block_->size());
 }
 
@@ -784,7 +859,7 @@ void peer_load_block::feed(const std::string &line, int &type, size_t &expected_
 	}
 }
 
-void peer_load_block::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+void peer_load_block::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
 
 }
 
@@ -841,7 +916,7 @@ void peer_stored_block::feed(const std::string &line, int &type, size_t &expecte
 	}
 }
 
-void peer_stored_block::feed(const char *data, size_t size, int &type, size_t &expected_size) {
+void peer_stored_block::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
 
 }
 
@@ -874,52 +949,99 @@ void peer_deliver_block::first_action(int &type, size_t &expected_size) {
 }
 
 void peer_deliver_block::feed(const std::string &line, int &type, size_t &expected_size) {
-	if (line == "") {
-		if (size_ == 0) {
-			block block(code_);
-			local_peer_.do_load_actions(block);
+	if (state_ == 0) {
+		if (line == "") {
+			if (size_ == 0) {
+				block block(code_);
+				local_peer_.do_load_actions(block);
 
-			type = DDSN_MESSAGE_TYPE_END;
+				type = DDSN_MESSAGE_TYPE_END;
+			} else {
+				expected_size = 256;
+				type = DDSN_MESSAGE_TYPE_BYTES;
+			}
+		} else {
+			size_t colon_pos = line.find(": ");
+			if (colon_pos == string::npos) {
+				type = DDSN_MESSAGE_TYPE_ERROR;
+				return;
+			}
+			string field_name = line.substr(0, colon_pos);
+			string field_value = line.substr(colon_pos + 2);
+
+			if (field_name == "Code") {
+				code_ = code(field_value, '_');
+			} else if (field_name == "Name") {
+				name_ = field_value;
+			} else if (field_name == "Size") {
+				try {
+					size_ = stoi(field_value);
+				} catch (...) {
+
+				}
+			}
+
+			type = DDSN_MESSAGE_TYPE_STRING;
+		}
+	} else if (state_ == 1) {
+		// public key
+
+		if (line == "") {
+			type = DDSN_MESSAGE_TYPE_BYTES;
+			expected_size = size_;
 		}
 		else {
-			expected_size = size_;
-			type = DDSN_MESSAGE_TYPE_BYTES;
+			public_key_ += line + "\n";
 		}
-	}
-	else {
-		size_t colon_pos = line.find(": ");
-		if (colon_pos == string::npos) {
-			type = DDSN_MESSAGE_TYPE_ERROR;
-			return;
-		}
-		string field_name = line.substr(0, colon_pos);
-		string field_value = line.substr(colon_pos + 2);
-
-		if (field_name == "Code") {
-			code_ = code(field_value, '_');
-		} else if (field_name == "Name") {
-			name_ = field_value;
-		} else if (field_name == "Size") {
-			try {
-				size_ = stoi(field_value);
-			} catch (...) {
-
-			}
-		}
-
-		type = DDSN_MESSAGE_TYPE_STRING;
 	}
 }
 
-void peer_deliver_block::feed(const char *data, size_t size, int &type, size_t &expected_size) {
-	block block(name_);
+void peer_deliver_block::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
+	if (state_ == 0) {
+		// got signature
 
-	block.set_data(data, size_);
+		memcpy(signature_, data, 256);
 
-	if (block.code() != code_) {
-		cout << "Wrong block code" << endl;
-	} else {
-		local_peer_.do_load_actions(block);
+		state_ = 1;
+
+		type = DDSN_MESSAGE_TYPE_STRING;
+	} else if (state_ == 1) {
+		// got data
+
+		block delivered_block(name_);
+
+		// code
+
+		delivered_block.set_code(code_);
+
+		// signature
+
+		delivered_block.set_signature(signature_);
+
+		// owner
+
+		BIO *pub = BIO_new(BIO_s_mem());
+
+		BIO_write(pub, public_key_.c_str(), public_key_.length());
+
+		RSA *owner = nullptr;
+		PEM_read_bio_RSAPublicKey(pub, &owner, NULL, NULL);
+
+		delivered_block.set_owner(owner);
+
+		// data
+
+		delivered_block.set_data(data, size_);
+
+		if (!delivered_block.verify()) {
+			cout << "Block is corrupted" << endl;
+			type = DDSN_MESSAGE_TYPE_ERROR;
+			return;
+		}
+
+		local_peer_.do_load_actions(delivered_block);
+
+		type = DDSN_MESSAGE_TYPE_END;
 	}
 }
 
@@ -931,10 +1053,32 @@ void peer_deliver_block::send() {
 			"\n");
 	} else {
 		peer_message::send("DELIVER BLOCK\n"
-			"Code: " + block_->code().string() + "\n"
+			"Code: " + block_->code().string('_') + "\n"
 			"Name: " + block_->name() + "\n"
 			"Size: " + boost::lexical_cast<string>(block_->size()) + "\n"
 			"\n");
+
+		// send signature
+
+		peer_message::send(block_->signature(), 256);
+
+		// send public key in pem format
+
+		BIO *pub = BIO_new(BIO_s_mem());
+
+		PEM_write_bio_RSAPublicKey(pub, block_->owner());
+
+		size_t pub_len = BIO_pending(pub);
+
+		BYTE *pub_key = new BYTE[pub_len];
+
+		BIO_read(pub, pub_key, pub_len);
+
+		// actually a string, but we can use byte verion of send
+		peer_message::send(pub_key, pub_len);
+		peer_message::send("\n");
+
+		// send data
 		peer_message::send(block_->data(), block_->size());
 	}
 }

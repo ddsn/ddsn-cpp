@@ -1,6 +1,8 @@
 #ifndef DDSN_code_H
 #define DDSN_code_H
 
+#include "definitions.h"
+
 #include <string>
 
 namespace ddsn {
@@ -9,22 +11,24 @@ class code {
 public:
 	code();
 	code(int layers);
-	code(int layers, const unsigned char *code);
-	code(std::string code, char delim = ':');
+	code(int layers, const BYTE *code);
+	code(std::string code, CHAR delim = ':');
 	code(const code &code);
 
 	~code();
 
-	int layer_code(int layer) const;
-	int ext_layer_code(int layer) const;
-	void set_layer_code(int layer, int code);
+	int layer_code(UINT32 layer) const;
+	int ext_layer_code(UINT32 layer) const;
+	void set_layer_code(UINT32 layer, UINT32 code);
 
-	void resize_layers(int layers);
+	void resize_layers(UINT32 layers);
 
 	int layers() const;
 
 	bool contains(const code &code) const;
 	int differing_layer(const code &code) const;
+
+	const BYTE *bytes() const;
 
 	code &operator=(const code &code);
 	bool operator==(const code &code) const;
@@ -36,8 +40,8 @@ public:
 	friend std::hash<ddsn::code>;
 
 private:
-	int layers_;
-	unsigned char *code_;
+	UINT32 layers_;
+	BYTE *code_;
 };
 
 std::ostream& operator<<(std::ostream& stream, const code& code);

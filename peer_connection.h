@@ -1,6 +1,7 @@
 #ifndef DDSN_PEER_CONNECTION_H
 #define DDSN_PEER_CONNECTION_H
 
+#include "definitions.h"
 #include "local_peer.h"
 #include "foreign_peer.h"
 
@@ -37,7 +38,7 @@ public:
 	void close();
 private:
 	void send(const std::string &string);
-	void send(const char *bytes, size_t size);
+	void send(const BYTE *bytes, size_t size);
 
 	void handle_read(const boost::system::error_code& error, std::size_t bytes_transferred);
 	void handle_write(boost::asio::streambuf *snd_streambuf, const boost::system::error_code& error, std::size_t bytes_transferred);
@@ -48,7 +49,7 @@ private:
 	boost::asio::ip::tcp::socket socket_;
 
 	boost::asio::streambuf rcv_streambuf_;
-	char *rcv_buffer_;
+	BYTE *rcv_buffer_;
 	size_t rcv_buffer_start_;
 	size_t rcv_buffer_end_;
 	size_t rcv_buffer_size_;

@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
 
 	cout << "Your id is " << my_peer.id().short_string() << endl;
 
-	srand(time(nullptr));
+	srand((UINT32)time(nullptr));
 
 	peer_server.start_accept();
 	api_server.start_accept();

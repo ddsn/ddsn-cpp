@@ -1,4 +1,5 @@
 #include "peer_id.h"
+#include "utilities.h"
 
 #include <cstring>
 #include <iostream>
@@ -11,7 +12,7 @@ peer_id::peer_id() {
 
 }
 
-peer_id::peer_id(unsigned char id[32]) {
+peer_id::peer_id(BYTE id[32]) {
 	memcpy(id_, id, 32);
 }
 
@@ -19,11 +20,11 @@ peer_id::~peer_id() {
 
 }
 
-const unsigned char *peer_id::id() const {
+const BYTE *peer_id::id() const {
 	return id_;
 }
 
-void peer_id::set_id(unsigned char id[32]) {
+void peer_id::set_id(BYTE id[32]) {
 	memcpy(id_, id, 32);
 }
 
@@ -37,43 +38,11 @@ bool peer_id::operator==(const peer_id &peer_id) const {
 }
 
 string peer_id::string() const {
-	std::string string;
-	for (int i = 0; i < 32; i += 1) {
-		int digit = id_[i] >> 4;
-		if (digit <= 9) {
-			string += (char)('0' + digit);
-		} else {
-			string += (char)('a' + digit - 10);
-		}
-
-		digit = id_[i] & 0xF;
-		if (digit <= 9) {
-			string += (char)('0' + digit);
-		} else {
-			string += (char)('a' + digit - 10);
-		}
-	}
-	return string;
+	return bytes_to_hex(id_, 32);
 }
 
 string peer_id::short_string() const {
-	std::string string;
-	for (int i = 0; i < 3; i += 1) {
-		int digit = id_[i] >> 4;
-		if (digit <= 9) {
-			string += (char)('0' + digit);
-		} else {
-			string += (char)('a' + digit - 10);
-		}
-
-		digit = id_[i] & 0xF;
-		if (digit <= 9) {
-			string += (char)('0' + digit);
-		} else {
-			string += (char)('a' + digit - 10);
-		}
-	}
-	return string;
+	return bytes_to_hex(id_, 3);
 }
 
 namespace ddsn {
@@ -84,11 +53,11 @@ namespace ddsn {
 }
 
 size_t hash<peer_id>::operator()(const peer_id &peer_id) const {
-	const unsigned char *id_ = peer_id.id();
-	unsigned int hash = 0;
+	const BYTE *id_ = peer_id.id();
+	UINT32 hash = 0;
 
 	for (int i = 0; i < 32; i += 4) {
-		hash ^= (unsigned int)id_[i] << 24 | (unsigned int)id_[i + 1] << 16 | (unsigned int)id_[i + 2] << 8 | (unsigned int)id_[i + 3];
+		hash ^= (UINT32)id_[i] << 24 | (UINT32)id_[i + 1] << 16 | (UINT32)id_[i + 2] << 8 | (UINT32)id_[i + 3];
 	}
 
 	return hash;

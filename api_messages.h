@@ -2,6 +2,7 @@
 #define DDSN_API_MESSAGES_H
 
 #include "api_connection.h"
+#include "definitions.h"
 #include "local_peer.h"
 
 #include <string>
@@ -24,7 +25,7 @@ public:
 	virtual void feed(const std::string &line, int &type, size_t &expected_size) = 0;
 
 	// provides this message with a byte array
-	virtual void feed(const char *data, size_t size, int &type, size_t &expected_size) = 0;
+	virtual void feed(const BYTE *data, size_t size, int &type, size_t &expected_size) = 0;
 protected:
 	local_peer &local_peer_;
 	api_connection::pointer connection_;
@@ -39,7 +40,7 @@ public:
 	virtual void send(api_connection::pointer connection) = 0;
 protected:
 	void send(api_connection::pointer connection, const std::string &string);
-	void send(api_connection::pointer connection, const char *bytes, size_t size);
+	void send(api_connection::pointer connection, const BYTE *bytes, size_t size);
 };
 
 /*
@@ -53,7 +54,7 @@ public:
 
 	void first_action(int &type, size_t &expected_size);
 	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
 };
 
 class api_in_ping : public api_in_message {
@@ -63,7 +64,7 @@ public:
 
 	void first_action(int &type, size_t &expected_size);
 	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
 };
 
 class api_in_store_file : public api_in_message {
@@ -73,7 +74,7 @@ public:
 
 	void first_action(int &type, size_t &expected_size);
 	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
 private:
 	int state_;
 	std::string file_name_;
@@ -82,7 +83,7 @@ private:
 	int file_size_;
 	int chunk_size_;
 	int data_pointer_;
-	char *data_;
+	BYTE *data_;
 };
 
 class api_in_load_file : public api_in_message {
@@ -92,7 +93,7 @@ public:
 
 	void first_action(int &type, size_t &expected_size);
 	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
 private:
 	code code_;
 };
@@ -104,7 +105,7 @@ public:
 
 	void first_action(int &type, size_t &expected_size);
 	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
 private:
 	std::string host_;
 	int port_;
@@ -117,7 +118,7 @@ public:
 
 	void first_action(int &type, size_t &expected_size);
 	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const char *data, size_t size, int &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
 };
 
 /*
@@ -155,7 +156,7 @@ private:
 class api_out_load_file : public api_out_message {
 public:
 	api_out_load_file(const code &block_code);
-	api_out_load_file(const std::string &file_name, size_t file_size, const code &block_code, const char *data);
+	api_out_load_file(const std::string &file_name, size_t file_size, const code &block_code, const BYTE *data);
 	~api_out_load_file();
 
 	void send(api_connection::pointer connection);
@@ -163,7 +164,7 @@ private:
 	std::string file_name_;
 	size_t file_size_;
 	const code &block_code_;
-	const char *data_;
+	const BYTE *data_;
 };
 
 class api_out_connect_peer : public api_out_message {

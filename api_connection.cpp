@@ -21,7 +21,7 @@ api_connection::api_connection(api_server &api_server, local_peer &local_peer, i
 server_(api_server), local_peer_(local_peer), socket_(io_service), authenticated_(false), message_(nullptr), rcv_buffer_start_(0), rcv_buffer_end_(0) {
 	id_ = connections++;
 
-	rcv_buffer_ = new char[256];
+	rcv_buffer_ = new BYTE[256];
 	rcv_buffer_size_ = 256;
 }
 
@@ -70,11 +70,11 @@ void api_connection::send(const std::string &string) {
 		boost::asio::placeholders::bytes_transferred));
 }
 
-void api_connection::send(const char *bytes, size_t size) {
+void api_connection::send(const BYTE *bytes, size_t size) {
 	boost::asio::streambuf *snd_streambuf = new boost::asio::streambuf();
 	std::ostream ostream(snd_streambuf);
 
-	ostream.write(bytes, size);
+	ostream.write((CHAR *)bytes, size);
 
 	boost::asio::async_write(socket_, *snd_streambuf, boost::bind(&api_connection::handle_write, shared_from_this(),
 		snd_streambuf,
@@ -102,7 +102,7 @@ void api_connection::handle_read(const boost::system::error_code& error, std::si
 			if (message_ == nullptr || read_type_ == DDSN_MESSAGE_TYPE_STRING || read_type_ == DDSN_MESSAGE_TYPE_END) {
 				int end_line = -1;
 
-				for (unsigned int i = rcv_buffer_start_; i < rcv_buffer_end_; i++) {
+				for (UINT32 i = rcv_buffer_start_; i < rcv_buffer_end_; i++) {
 					if (rcv_buffer_[i] == '\n') {
 						end_line = i;
 						break;
@@ -110,7 +110,7 @@ void api_connection::handle_read(const boost::system::error_code& error, std::si
 				}
 
 				if (end_line != -1) {
-					std::string line(rcv_buffer_ + rcv_buffer_start_, end_line - rcv_buffer_start_);
+					std::string line((CHAR *)(rcv_buffer_ + rcv_buffer_start_), end_line - rcv_buffer_start_);
 					rcv_buffer_start_ = end_line + 1;
 
 					if (message_ == nullptr) {
@@ -164,12 +164,17 @@ void api_connection::handle_read(const boost::system::error_code& error, std::si
 			return;
 		}
 
+		if (buffer_data == 0) {
+			rcv_buffer_start_ = 0;
+			rcv_buffer_end_ = 0;
+		}
+
 		size_t buffer_size = rcv_buffer_size_ - rcv_buffer_end_;
 
 		if (buffer_size < 16 || (read_type_ == DDSN_MESSAGE_TYPE_BYTES && read_bytes_ > buffer_size)) {
 			if (read_type_ == DDSN_MESSAGE_TYPE_STRING && rcv_buffer_start_ == 0 && buffer_size == 0) {
 				// double buffer space because string seems to be too long for current buffer
-				char *new_buffer = new char[rcv_buffer_size_ * 2];
+				BYTE *new_buffer = new BYTE[rcv_buffer_size_ * 2];
 				memcpy(new_buffer, rcv_buffer_, rcv_buffer_size_);
 				delete[] rcv_buffer_;
 				rcv_buffer_ = new_buffer;
@@ -192,7 +197,7 @@ void api_connection::handle_read(const boost::system::error_code& error, std::si
 			} else {
 				// enlarge buffer space for expected bytes to next power of 2
 				rcv_buffer_size_ = next_power(read_bytes_);
-				char *new_buffer = new char[rcv_buffer_size_];
+				BYTE *new_buffer = new BYTE[rcv_buffer_size_];
 				memcpy(new_buffer, rcv_buffer_ + rcv_buffer_start_, buffer_data);
 				delete[] rcv_buffer_;
 				rcv_buffer_ = new_buffer;

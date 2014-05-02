@@ -3,27 +3,27 @@
 #include <cstring>
 #include <memory>
 #include <iostream>
-#include <assert.h>
+#include <cassert>
 
 using namespace ddsn;
 using namespace std;
 
 code::code() {
-	code_ = new unsigned char[1];
+	code_ = new BYTE[1];
 	layers_ = 0;
 	memset(code_, 0, 1);
 }
 
 code::code(int layers) {
 	int size = (layers - 1) / 8 + 1;
-	code_ = new unsigned char[size];
+	code_ = new BYTE[size];
 	layers_ = layers;
 	memset(code_, 0, size);
 }
 
-code::code(int layers, const unsigned char *code) {
+code::code(int layers, const BYTE *code) {
 	int size = (layers - 1) / 8 + 1;
-	code_ = new unsigned char[size];
+	code_ = new BYTE[size];
 	layers_ = layers;
 	memcpy(code_, code, size);
 }
@@ -42,7 +42,7 @@ code::code(std::string code, char delim) {
 	}
 
 	int size = (layers - 1) / 8 + 1;
-	code_ = new unsigned char[size];
+	code_ = new BYTE[size];
 	layers_ = layers;
 	memset(code_, 0, size);
 
@@ -70,7 +70,7 @@ code::code(std::string code, char delim) {
 
 code::code(const code &code) {
 	int size = (code.layers_ - 1) / 8 + 1;
-	code_ = new unsigned char[size];
+	code_ = new BYTE[size];
 	layers_ = code.layers_;
 	memcpy(code_, code.code_, size);
 }
@@ -79,17 +79,17 @@ code::~code() {
 	delete[] code_;
 }
 
-int code::layer_code(int layer) const {
+int code::layer_code(UINT32 layer) const {
 	if (layer > layers_) return -1;
 	return (code_[layer / 8] >> (layer % 8)) & 1;
 }
 
-int code::ext_layer_code(int layer) const {
+int code::ext_layer_code(UINT32 layer) const {
 	if (layer > layers_) return 0;
 	return (code_[layer / 8] >> (layer % 8)) & 1;
 }
 
-void code::set_layer_code(int layer, int code) {
+void code::set_layer_code(UINT32 layer, UINT32 code) {
 	assert(layer < layers_);
 	if (code == 0) {
 		code_[layer / 8] &= 0xFF ^ (1 << (layer % 8));
@@ -99,13 +99,13 @@ void code::set_layer_code(int layer, int code) {
 	}
 }
 
-void code::resize_layers(int layers) {
+void code::resize_layers(UINT32 layers) {
 	if (layers > layers_) {
 		int oldSize = (layers_ - 1) / 8 + 1;
 		int newSize = (layers - 1) / 8 + 1;
 
 		if (newSize > oldSize) {
-			unsigned char *newcode = new unsigned char[newSize];
+			BYTE *newcode = new BYTE[newSize];
 			memcpy(newcode, code_, oldSize);
 
 			delete[] code_;
@@ -121,7 +121,7 @@ int code::layers() const {
 }
 
 bool code::contains(const code &code) const {
-	for (int i = 0; i < layers_; i++) {
+	for (UINT32 i = 0; i < layers_; i++) {
 		if (code.ext_layer_code(i) != layer_code(i)) {
 			return false;
 		}
@@ -130,7 +130,7 @@ bool code::contains(const code &code) const {
 }
 
 int code::differing_layer(const code &code) const {
-	for (int i = 0; i < layers_; i++) {
+	for (UINT32 i = 0; i < layers_; i++) {
 		if (code.ext_layer_code(i) != layer_code(i)) {
 			return i;
 		}
@@ -138,17 +138,21 @@ int code::differing_layer(const code &code) const {
 	return -1;
 }
 
+const BYTE *code::bytes() const {
+	return code_;
+}
+
 bool code::operator==(const code &code) const {
 	if (code.layers_ != layers_) {
 		return false;
 	}
 	size_t size = layers_ / 8 + 1;
-	for (unsigned int i = 0; i < size - 1; i++) {
+	for (UINT32 i = 0; i < size - 1; i++) {
 		if (code.code_[i] != code_[i]) {
 			return false;
 		}
 	}
-	for (unsigned int i = (size - 1) * 8; i < layers_; i++) {
+	for (UINT32 i = (size - 1) * 8; i < layers_; i++) {
 		if (code.layer_code(i) != layer_code(i)) {
 			return false;
 		}
@@ -161,9 +165,9 @@ bool code::operator!=(const code &code) const {
 }
 
 code &code::operator=(const code &code) {
-	int size = (code.layers_ - 1) / 8 + 1;
+	size_t size = (code.layers_ - 1) / 8 + 1;
 	delete[] code_;
-	code_ = new unsigned char[size];
+	code_ = new BYTE[size];
 	layers_ = code.layers_;
 	memcpy(code_, code.code_, size);
 	return *this;
@@ -171,7 +175,7 @@ code &code::operator=(const code &code) {
 
 string code::string(char delim) const {
 	std::string string;
-	int i = 0;
+	UINT32 i = 0;
 	for (; i + 3 < layers_; i += 4) {
 		int digit = layer_code(i) << 3 | layer_code(i + 1) << 2 | layer_code(i + 2) << 1 | layer_code(i + 3);
 		if (digit <= 9) {
@@ -198,35 +202,35 @@ namespace ddsn {
 }
 
 size_t std::hash<code>::operator()(const code &code) const {
-	unsigned char *code_ = code.code_;
-	unsigned int hash = 0;
+	BYTE *code_ = code.code_;
+	UINT32 hash = 0;
 	size_t size = code.layers_ / 8;
-	int i = 0;
+	UINT32 i = 0;
 	
 	for (; i + 4 < size; i += 4) {
-		hash ^= (unsigned int)code_[i] << 24 | (unsigned int)code_[i + 1] << 16 | (unsigned int)code_[i + 2] << 8 | (unsigned int)code_[i + 3];
+		hash ^= (UINT32)code_[i] << 24 | (UINT32)code_[i + 1] << 16 | (UINT32)code_[i + 2] << 8 | (UINT32)code_[i + 3];
 	}
 
 	for (; i < size; i++) {
 		int place = i % 4;
 		switch (place) {
 		case 0:
-			hash ^= (unsigned int)code_[i];
+			hash ^= (UINT32)code_[i];
 			break;
 		case 1:
-			hash ^= (unsigned int)code_[i] << 8;
+			hash ^= (UINT32)code_[i] << 8;
 			break;
 		case 2:
-			hash ^= (unsigned int)code_[i] << 16;
+			hash ^= (UINT32)code_[i] << 16;
 			break;
 		case 3:
-			hash ^= (unsigned int)code_[i] << 24;
+			hash ^= (UINT32)code_[i] << 24;
 			break;
 		}
 	}
 
-	unsigned int rest = 1;
-	for (unsigned int i = (size - 1) * 8; i < code.layers_; i++) {
+	UINT32 rest = 1;
+	for (UINT32 i = (size - 1) * 8; i < code.layers_; i++) {
 		rest <<= 1;
 		rest |= code.layer_code(i);
 	}
