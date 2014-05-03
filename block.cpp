@@ -10,10 +10,26 @@
 using namespace ddsn;
 using namespace std;
 
-block::block(const string &name) : name_(name), data_(nullptr), size_(0), owner_(nullptr) {
+block::block() : data_(nullptr), size_(0), owner_(nullptr), occurrence_(0) {
 }
 
-block::block(const ddsn::code &code) : code_(code), data_(nullptr), size_(0), owner_(nullptr) {
+block::block(const string &name) : name_(name), data_(nullptr), size_(0), owner_(nullptr), occurrence_(0) {
+}
+
+block::block(const ddsn::code &code) : code_(code), data_(nullptr), size_(0), owner_(nullptr), occurrence_(0) {
+}
+
+block::block(const block &block) :
+code_(block.code_), name_(block.name_), size_(block.size_), owner_(block.owner_), occurrence_(block.occurrence_) {
+	memcpy(signature_, block.signature_, 256);
+	memcpy(owner_hash_, block.owner_hash_, 256);
+
+	if (block.data_ != nullptr) {
+		data_ = new BYTE[size_];
+		memcpy(data_, block.data_, size_);
+	} else {
+		data_ = nullptr;
+	}
 }
 
 block::~block() {
@@ -46,6 +62,14 @@ RSA *block::owner() const {
 	return owner_;
 }
 
+const BYTE *block::owner_hash() const {
+	return owner_hash_;
+}
+
+UINT32 block::occurrence() const {
+	return occurrence_;
+}
+
 void block::set_code(const ddsn::code &code) {
 	code_ = code;
 }
@@ -54,15 +78,36 @@ void block::set_signature(const BYTE signature[256]) {
 	memcpy(signature_, signature, 256);
 }
 
+void block::set_name(const std::string &name) {
+	name_ = name;
+}
+
 void block::set_data(const BYTE *data, size_t size) {
+	if (data_ != nullptr) {
+		delete[] data_;
+	}
+
 	data_ = new BYTE[size];
 	size_ = size;
 
 	memcpy(data_, data, size);
 }
 
+void block::set_size(size_t size) {
+	size_ = size;
+}
+
 void block::set_owner(RSA *owner) {
 	owner_ = owner;
+	hash_from_rsa(owner, owner_hash_);
+}
+
+void block::set_owner_hash(BYTE owner_hash[32]) {
+	memcpy(owner_hash_, owner_hash, 32);
+}
+
+void block::set_occurrence(UINT32 occurrence) {
+	occurrence_ = occurrence;
 }
 
 void block::seal() {
@@ -71,7 +116,6 @@ void block::seal() {
 	// signature
 
 	BYTE data_hash[32];
-	hash_from_rsa(owner_, data_hash);
 
 	SHA256_Init(&sha256);
 	SHA256_Update(&sha256, data_, size_);
@@ -88,9 +132,12 @@ void block::seal() {
 	SHA256_Init(&sha256);
 	SHA256_Update(&sha256, name_.c_str(), name_.length());
 	SHA256_Update(&sha256, name_hash, 32);
-	SHA256_Final(name_hash, &sha256);
+	SHA256_Update(&sha256, &occurrence_, 4);
 
-	code_ = ddsn::code(256, name_hash);
+	BYTE code_bytes[32];
+	SHA256_Final(code_bytes, &sha256);
+
+	code_ = ddsn::code(256, code_bytes);
 }
 
 bool block::verify() {
@@ -99,7 +146,6 @@ bool block::verify() {
 	// signature
 	
 	BYTE data_hash[32];
-	hash_from_rsa(owner_, data_hash);
 
 	SHA256_Init(&sha256);
 	SHA256_Update(&sha256, data_, size_);
@@ -117,9 +163,12 @@ bool block::verify() {
 	SHA256_Init(&sha256);
 	SHA256_Update(&sha256, name_.c_str(), name_.length());
 	SHA256_Update(&sha256, name_hash, 32);
-	SHA256_Final(name_hash, &sha256);
+	SHA256_Update(&sha256, &occurrence_, 4);
 
-	ddsn::code code(256, name_hash);
+	BYTE code_bytes[32];
+	SHA256_Final(code_bytes, &sha256);
+
+	ddsn::code code(256, code_bytes);
 
 	if (code != code_) {
 		return false;
@@ -139,6 +188,7 @@ int block::save_to_filesystem() const {
 		file.seekp(0, ios::beg);
 
 		file.write((CHAR *)code_.bytes(), 32);
+		file.write((CHAR *)&occurrence_, 4);
 		file.write((CHAR *)signature_, 256);
 		file.write(name_.c_str(), name_.length() + 1);
 
@@ -194,6 +244,10 @@ int block::load_from_filesystem() {
 			cout << "Wrong block code in file" << endl;
 			return -2;
 		}
+
+		// occurrence
+
+		file.read((CHAR *)&occurrence_, 4);
 
 		// signature
 
@@ -256,7 +310,7 @@ int block::load_from_filesystem() {
 	}
 }
 
-int block::delete_from_filesystem() {
+int block::delete_from_filesystem() const {
 	int ret_code = std::remove(("blocks/" + code_.string('_')).c_str());
 	if (ret_code == 0) {
 		return 0;

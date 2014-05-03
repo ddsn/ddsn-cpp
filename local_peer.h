@@ -17,7 +17,7 @@ namespace ddsn {
 
 class local_peer;
 
-void action_peer_stored_block(local_peer &local_peer, const ddsn::code &code, const std::string &name, bool success);
+void action_peer_stored_block(local_peer &local_peer, const block &block, bool success);
 
 class api_server;
 class foreign_peer;
@@ -45,17 +45,18 @@ public:
 	void load_area_keys();
 
 	// blocks
-	void store(const block &block, boost::function<void(const ddsn::code&, const std::string &, bool)> action);
-	void load(const ddsn::code &code, boost::function<void(block&)> action);
+	void store(const block &block, boost::function<void(const ddsn::block &, bool)> action);
+	void load(const ddsn::code &code, boost::function<void(const block &, bool)> action);
 	bool exists(const ddsn::code &code);
 	void redistribute_block();
 
 	int capacity() const;
 	int blocks() const;
+	std::unordered_set<ddsn::code> stored_blocks() const;
 	void set_capacity(int capactiy);
 
-	void do_load_actions(block &block);
-	void do_store_actions(const ddsn::code &code, const std::string &name, bool success);
+	void do_load_actions(const block &block, bool success);
+	void do_store_actions(const block &block, bool success);
 
 	// network management
 	bool integrated() const;
@@ -85,8 +86,8 @@ private:
 
 	UINT32 capacity_;
 	std::unordered_set<ddsn::code> stored_blocks_;
-	std::list<std::pair<ddsn::code, boost::function<void(block &)>>> load_actions_;
-	std::list<std::pair<ddsn::code, boost::function<void(const ddsn::code &, const std::string &, bool)>>> store_actions_;
+	std::list<std::pair<ddsn::code, boost::function<void(const block &, bool)>>> load_actions_;
+	std::list<std::pair<ddsn::code, boost::function<void(const block &, bool)>>> store_actions_;
 
 	bool integrated_;
 	bool splitting_;
@@ -94,7 +95,7 @@ private:
 
 	std::unordered_map<peer_id, std::shared_ptr<foreign_peer>> foreign_peers_;
 
-	friend void ddsn::action_peer_stored_block(local_peer &local_peer, const ddsn::code &code, const std::string &name, bool success);
+	friend void ddsn::action_peer_stored_block(local_peer &local_peer, const block &block, bool success);
 };
 
 }

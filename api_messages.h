@@ -121,6 +121,16 @@ public:
 	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
 };
 
+class api_in_peer_blocks : public api_in_message {
+public:
+	api_in_peer_blocks(local_peer &local_peer, api_connection::pointer connection);
+	~api_in_peer_blocks();
+
+	void first_action(int &type, size_t &expected_size);
+	void feed(const std::string &line, int &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
+};
+
 /*
   OUT MESSAGES
 */
@@ -141,30 +151,26 @@ public:
 	void send(api_connection::pointer connection);
 };
 
-class api_out_store_file : public api_out_message {
+class api_out_store_block : public api_out_message {
 public:
-	api_out_store_file(const code &block_code, const std::string &block_name, bool success);
-	~api_out_store_file();
+	api_out_store_block(const block &block, bool success);
+	~api_out_store_block();
 
 	void send(api_connection::pointer connection);
 private:
-	const code block_code_;
-	const std::string block_name_;
+	const block &block_;
 	bool success_;
 };
 
-class api_out_load_file : public api_out_message {
+class api_out_load_block : public api_out_message {
 public:
-	api_out_load_file(const code &block_code);
-	api_out_load_file(const std::string &file_name, size_t file_size, const code &block_code, const BYTE *data);
-	~api_out_load_file();
+	api_out_load_block(const block &block, bool success);
+	~api_out_load_block();
 
 	void send(api_connection::pointer connection);
 private:
-	std::string file_name_;
-	size_t file_size_;
-	const code &block_code_;
-	const BYTE *data_;
+	const block &block_;
+	bool success_;
 };
 
 class api_out_connect_peer : public api_out_message {
@@ -179,6 +185,16 @@ class api_out_peer_info : public api_out_message {
 public:
 	api_out_peer_info(const local_peer &local_peer);
 	~api_out_peer_info();
+
+	void send(api_connection::pointer connection);
+private:
+	const local_peer &local_peer_;
+};
+
+class api_out_peer_blocks : public api_out_message {
+public:
+	api_out_peer_blocks(const local_peer &local_peer);
+	~api_out_peer_blocks();
 
 	void send(api_connection::pointer connection);
 private:

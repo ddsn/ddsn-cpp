@@ -675,7 +675,7 @@ peer_message(local_peer, connection), state_(0) {
 
 }
 
-peer_store_block::peer_store_block(local_peer &local_peer, peer_connection::pointer connection, const block *block) :
+peer_store_block::peer_store_block(local_peer &local_peer, peer_connection::pointer connection, const block &block) :
 peer_message(local_peer, connection), block_(block) {
 
 }
@@ -703,12 +703,18 @@ void peer_store_block::feed(const std::string &line, int &type, size_t &expected
 			string field_value = line.substr(colon_pos + 2);
 
 			if (field_name == "Code") {
-				code_ = code(field_value, '_');
+				block_.set_code(code(field_value, '_'));
 			} else if (field_name == "Name") {
-				name_ = field_value;
+				block_.set_name(field_value);
+			} else if (field_name == "Occurrence") {
+				try {
+					block_.set_occurrence(stoi(field_value));
+				} catch (...) {
+
+				}
 			} else if (field_name == "Size") {
 				try {
-					size_ = stoi(field_value);
+					block_.set_size(stoi(field_value));
 				} catch (...) {
 
 				}
@@ -721,7 +727,7 @@ void peer_store_block::feed(const std::string &line, int &type, size_t &expected
 
 		if (line == "") {
 			type = DDSN_MESSAGE_TYPE_BYTES;
-			expected_size = size_;
+			expected_size = block_.size();
 		} else {
 			public_key_ += line + "\n";
 			type = DDSN_MESSAGE_TYPE_STRING;
@@ -729,32 +735,22 @@ void peer_store_block::feed(const std::string &line, int &type, size_t &expected
 	}
 }
 
-void action_peer_store_block(local_peer &local_peer, peer_connection::pointer connection, const code &code, const string &name, bool success) {
-	peer_stored_block(local_peer, connection, code, name, success).send();
+void action_peer_store_block(local_peer &local_peer, peer_connection::pointer connection, const block &block, bool success) {
+	peer_stored_block(local_peer, connection, block, success).send();
 }
 
 void peer_store_block::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
 	if (state_ == 0) {
 		// got signature
 
-		memcpy(signature_, data, 256);
+		BYTE signature[256];
+		memcpy(signature, data, 256);
+		block_.set_signature(signature);
 
 		state_ = 1;
 
 		type = DDSN_MESSAGE_TYPE_STRING;
 	} else if (state_ == 1) {
-		// got data
-
-		ddsn::block new_block(name_);
-
-		// code
-		
-		new_block.set_code(code_);
-
-		// signature
-
-		new_block.set_signature(signature_);
-
 		// owner
 
 		BIO *pub = BIO_new(BIO_s_mem());
@@ -764,19 +760,19 @@ void peer_store_block::feed(const BYTE *data, size_t size, int &type, size_t &ex
 		RSA *owner = nullptr;
 		PEM_read_bio_RSAPublicKey(pub, &owner, NULL, NULL);
 
-		new_block.set_owner(owner);
+		block_.set_owner(owner);
 
 		// data
 
-		new_block.set_data(data, size_);
+		block_.set_data(data, size);
 
-		if (!new_block.verify()) {
+		if (!block_.verify()) {
 			cout << "Block is corrupted" << endl;
 			type = DDSN_MESSAGE_TYPE_ERROR;
 			return;
 		}
 
-		local_peer_.store(new_block, boost::bind(&action_peer_store_block, boost::ref(local_peer_), connection_, _1, _2, _3));
+		local_peer_.store(block_, boost::bind(&action_peer_store_block, boost::ref(local_peer_), connection_, _1, _2));
 
 		type = DDSN_MESSAGE_TYPE_END;
 	}
@@ -784,20 +780,21 @@ void peer_store_block::feed(const BYTE *data, size_t size, int &type, size_t &ex
 
 void peer_store_block::send() {
 	peer_message::send("STORE BLOCK\n"
-		"Code: " + block_->code().string('_') + "\n"
-		"Name: " + block_->name() + "\n"
-		"Size: " + boost::lexical_cast<string>(block_->size()) + "\n"
+		"Code: " + block_.code().string('_') + "\n"
+		"Name: " + block_.name() + "\n"
+		"Occurrence: " + boost::lexical_cast<string>(block_.occurrence()) + "\n"
+		"Size: " + boost::lexical_cast<string>(block_.size()) + "\n"
 		"\n");
 
 	// send signature
 
-	peer_message::send(block_->signature(), 256);
+	peer_message::send(block_.signature(), 256);
 
 	// send public key in pem format
 
 	BIO *pub = BIO_new(BIO_s_mem());
 
-	PEM_write_bio_RSAPublicKey(pub, block_->owner());
+	PEM_write_bio_RSAPublicKey(pub, block_.owner());
 
 	size_t pub_len = BIO_pending(pub);
 
@@ -810,7 +807,7 @@ void peer_store_block::send() {
 	peer_message::send("\n");
 
 	// send data
-	peer_message::send(block_->data(), block_->size());
+	peer_message::send(block_.data(), block_.size());
 }
 
 // LOAD BLOCK
@@ -833,13 +830,13 @@ void peer_load_block::first_action(int &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
-void action_peer_load_block(local_peer &local_peer, peer_connection::pointer connection, block &block) {
-	peer_deliver_block(local_peer, connection, &block).send();
+void action_peer_load_block(local_peer &local_peer, peer_connection::pointer connection, const block &block, bool success) {
+	peer_deliver_block(local_peer, connection, block, success).send();
 }
 
 void peer_load_block::feed(const std::string &line, int &type, size_t &expected_size) {
 	if (line == "") {
-		local_peer_.load(code_, boost::bind(&action_peer_load_block, boost::ref(local_peer_), connection_, _1));
+		local_peer_.load(code_, boost::bind(&action_peer_load_block, boost::ref(local_peer_), connection_, _1, _2));
 
 		type = DDSN_MESSAGE_TYPE_END;
 	}
@@ -877,8 +874,8 @@ peer_message(local_peer, connection) {
 
 }
 
-peer_stored_block::peer_stored_block(local_peer &local_peer, peer_connection::pointer connection, const code &code, std::string name, bool success) :
-peer_message(local_peer, connection), code_(code), name_(name), success_(success) {
+peer_stored_block::peer_stored_block(local_peer &local_peer, peer_connection::pointer connection, const block &block, bool success) :
+peer_message(local_peer, connection), block_(block), success_(success) {
 
 }
 
@@ -892,7 +889,7 @@ void peer_stored_block::first_action(int &type, size_t &expected_size) {
 
 void peer_stored_block::feed(const std::string &line, int &type, size_t &expected_size) {
 	if (line == "") {
-		local_peer_.do_store_actions(code_, name_, success_);
+		local_peer_.do_store_actions(boost::ref(block_), success_);
 
 		type = DDSN_MESSAGE_TYPE_END;
 	}
@@ -906,9 +903,19 @@ void peer_stored_block::feed(const std::string &line, int &type, size_t &expecte
 		string field_value = line.substr(colon_pos + 2);
 
 		if (field_name == "Code") {
-			code_ = code(field_value, '_');
+			block_.set_code(code(field_value, '_'));
 		} else if (field_name == "Name") {
-			name_ = field_value;
+			block_.set_name(field_value);
+		} else if (field_name == "Occurrence") {
+			try {
+				block_.set_occurrence(stoi(field_value));
+			} catch (...) {
+
+			}
+		} else if (field_name == "Owner") {
+			BYTE owner_hash[32];
+			hex_to_bytes(field_value, owner_hash, 32);
+			block_.set_owner_hash(owner_hash);
 		} else if (field_name == "Success") {
 			success_ = field_value == "yes";
 		}
@@ -923,8 +930,10 @@ void peer_stored_block::feed(const BYTE *data, size_t size, int &type, size_t &e
 
 void peer_stored_block::send() {
 	peer_message::send("STORED BLOCK\n"
-		"Code: " + code_.string('_') + "\n"
-		"Name: " + name_ + "\n"
+		"Code: " + block_.code().string('_') + "\n"
+		"Name: " + block_.name() + "\n"
+		"Occurrence: " + boost::lexical_cast<string>(block_.occurrence()) + "\n"
+		"Owner: " + bytes_to_hex(block_.owner_hash(), 32) + "\n"
 		"Success: " + (success_ ? "yes" : "no") + "\n"
 		"\n");
 }
@@ -936,8 +945,8 @@ peer_message(local_peer, connection), state_(0) {
 
 }
 
-peer_deliver_block::peer_deliver_block(local_peer &local_peer, peer_connection::pointer connection, const block *block) :
-peer_message(local_peer, connection), block_(block) {
+peer_deliver_block::peer_deliver_block(local_peer &local_peer, peer_connection::pointer connection, const block &block, bool success) :
+peer_message(local_peer, connection), block_(block), success_(success) {
 
 }
 
@@ -952,9 +961,8 @@ void peer_deliver_block::first_action(int &type, size_t &expected_size) {
 void peer_deliver_block::feed(const std::string &line, int &type, size_t &expected_size) {
 	if (state_ == 0) {
 		if (line == "") {
-			if (size_ == 0) {
-				block block(code_);
-				local_peer_.do_load_actions(block);
+			if (!success_) {
+				local_peer_.do_load_actions(block_, false);
 
 				type = DDSN_MESSAGE_TYPE_END;
 			} else {
@@ -971,15 +979,23 @@ void peer_deliver_block::feed(const std::string &line, int &type, size_t &expect
 			string field_value = line.substr(colon_pos + 2);
 
 			if (field_name == "Code") {
-				code_ = code(field_value, '_');
+				block_.set_code(code(field_value, '_'));
 			} else if (field_name == "Name") {
-				name_ = field_value;
-			} else if (field_name == "Size") {
+				block_.set_name(field_value);
+			} else if (field_name == "Occurrence") {
 				try {
-					size_ = stoi(field_value);
+					block_.set_occurrence(stoi(field_value));
 				} catch (...) {
 
 				}
+			} else if (field_name == "Size") {
+				try {
+					block_.set_size(stoi(field_value));
+				} catch (...) {
+
+				}
+			} else if (field_name == "Success") {
+				success_ = field_value == "yes";
 			}
 
 			type = DDSN_MESSAGE_TYPE_STRING;
@@ -989,7 +1005,7 @@ void peer_deliver_block::feed(const std::string &line, int &type, size_t &expect
 
 		if (line == "") {
 			type = DDSN_MESSAGE_TYPE_BYTES;
-			expected_size = size_;
+			expected_size = block_.size();
 		} else {
 			public_key_ += line + "\n";
 			type = DDSN_MESSAGE_TYPE_STRING;
@@ -1001,24 +1017,14 @@ void peer_deliver_block::feed(const BYTE *data, size_t size, int &type, size_t &
 	if (state_ == 0) {
 		// got signature
 
-		memcpy(signature_, data, 256);
+		BYTE signature[256];
+		memcpy(signature, data, 256);
+		block_.set_signature(signature);
 
 		state_ = 1;
 
 		type = DDSN_MESSAGE_TYPE_STRING;
 	} else if (state_ == 1) {
-		// got data
-
-		block delivered_block(name_);
-
-		// code
-
-		delivered_block.set_code(code_);
-
-		// signature
-
-		delivered_block.set_signature(signature_);
-
 		// owner
 
 		BIO *pub = BIO_new(BIO_s_mem());
@@ -1028,46 +1034,48 @@ void peer_deliver_block::feed(const BYTE *data, size_t size, int &type, size_t &
 		RSA *owner = nullptr;
 		PEM_read_bio_RSAPublicKey(pub, &owner, NULL, NULL);
 
-		delivered_block.set_owner(owner);
+		block_.set_owner(owner);
 
 		// data
 
-		delivered_block.set_data(data, size_);
+		block_.set_data(data, size);
 
-		if (!delivered_block.verify()) {
+		if (!block_.verify()) {
 			cout << "Block is corrupted" << endl;
 			type = DDSN_MESSAGE_TYPE_ERROR;
 			return;
 		}
 
-		local_peer_.do_load_actions(delivered_block);
+		local_peer_.do_load_actions(block_, true);
 
 		type = DDSN_MESSAGE_TYPE_END;
 	}
 }
 
 void peer_deliver_block::send() {
-	if (block_->size() == 0) {
+	if (!success_) {
 		peer_message::send("DELIVER BLOCK\n"
-			"Code: " + block_->code().string() + "\n"
-			"Size: 0\n"
+			"Code: " + block_.code().string() + "\n"
+			"Success: no\n"
 			"\n");
 	} else {
 		peer_message::send("DELIVER BLOCK\n"
-			"Code: " + block_->code().string('_') + "\n"
-			"Name: " + block_->name() + "\n"
-			"Size: " + boost::lexical_cast<string>(block_->size()) + "\n"
+			"Code: " + block_.code().string('_') + "\n"
+			"Name: " + block_.name() + "\n"
+			"Occurrence: " + boost::lexical_cast<string>(block_.occurrence()) + "\n"
+			"Size: " + boost::lexical_cast<string>(block_.size()) + "\n"
+			"Success: yes\n"
 			"\n");
 
 		// send signature
 
-		peer_message::send(block_->signature(), 256);
+		peer_message::send(block_.signature(), 256);
 
 		// send public key in pem format
 
 		BIO *pub = BIO_new(BIO_s_mem());
 
-		PEM_write_bio_RSAPublicKey(pub, block_->owner());
+		PEM_write_bio_RSAPublicKey(pub, block_.owner());
 
 		size_t pub_len = BIO_pending(pub);
 
@@ -1080,6 +1088,6 @@ void peer_deliver_block::send() {
 		peer_message::send("\n");
 
 		// send data
-		peer_message::send(block_->data(), block_->size());
+		peer_message::send(block_.data(), block_.size());
 	}
 }

@@ -192,8 +192,8 @@ void api_in_store_file::feed(const string &line, int &type, size_t &expected_siz
 	}
 }
 
-static void action_api_store_block(api_connection::pointer connection, const code &code, const string &name, bool success) {
-	api_out_store_file(code, name, success).send(connection);
+static void action_api_store_block(api_connection::pointer connection, const block &block, bool success) {
+	api_out_store_block(block, success).send(connection);
 }
 
 void api_in_store_file::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
@@ -208,12 +208,15 @@ void api_in_store_file::feed(const BYTE *data, size_t size, int &type, size_t &e
 	} else {
 		memcpy(data_ + data_pointer_, data, size);
 
-		block block(file_name_);
-		block.set_data(data_, file_size_);
-		block.set_owner(local_peer_.keypair());
-		block.seal();
+		for (UINT32 occurrence = 0; occurrence < 4; occurrence++) {
+			block block(file_name_);
+			block.set_data(data_, file_size_);
+			block.set_owner(local_peer_.keypair());
+			block.set_occurrence(occurrence);
+			block.seal();
 
-		local_peer_.store(block, boost::bind(&action_api_store_block, connection_, _1, _2, _3));
+			local_peer_.store(block, boost::bind(&action_api_store_block, connection_, _1, _2));
+		}
 
 		type = DDSN_MESSAGE_TYPE_END;
 	}
@@ -234,18 +237,13 @@ void api_in_load_file::first_action(int &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
-static void action_api_load_block(api_connection::pointer connection, block &block) {
-	if (block.size() > 0) {
-		api_out_load_file(block.name(), block.size(), block.code(), block.data()).send(connection);
-	}
-	else {
-		api_out_load_file(block.code()).send(connection);
-	}
+static void action_api_load_block(api_connection::pointer connection, const block &block, bool success) {
+	api_out_load_block(block, success).send(connection);
 }
 
 void api_in_load_file::feed(const string &line, int &type, size_t &expected_size) {
 	if (line == "") {
-		local_peer_.load(code_, boost::bind(&action_api_load_block, connection_, _1));
+		local_peer_.load(code_, boost::bind(&action_api_load_block, connection_, _1, _2));
 		type = DDSN_MESSAGE_TYPE_END;
 	} else {
 		size_t colon_pos = line.find(": ");
@@ -332,6 +330,29 @@ void api_in_peer_info::feed(const string &line, int &type, size_t &expected_size
 void api_in_peer_info::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
 }
 
+// PEER BLOCKS
+
+api_in_peer_blocks::api_in_peer_blocks(local_peer &local_peer, api_connection::pointer connection) :
+api_in_message(local_peer, connection) {
+
+}
+
+api_in_peer_blocks::~api_in_peer_blocks() {
+
+}
+
+void api_in_peer_blocks::first_action(int &type, size_t &expected_size) {
+	api_out_peer_blocks(local_peer_).send(connection_);
+
+	type = DDSN_MESSAGE_TYPE_END;
+}
+
+void api_in_peer_blocks::feed(const string &line, int &type, size_t &expected_size) {
+}
+
+void api_in_peer_blocks::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
+}
+
 /*
   OUT MESSAGES
 */
@@ -360,50 +381,41 @@ void api_out_ping::send(api_connection::pointer connection) {
 	api_out_message::send(connection, "PONG\n");
 }
 
-// STORE FILE
+// STORE BLOCK
 
-api_out_store_file::api_out_store_file(const code &block_code, const std::string &block_name, bool success) :
-block_code_(block_code), block_name_(block_name), success_(success) {
+api_out_store_block::api_out_store_block(const block &block, bool success) :
+block_(block), success_(success) {
 }
 
-api_out_store_file::~api_out_store_file() {
+api_out_store_block::~api_out_store_block() {
 }
 
-void api_out_store_file::send(api_connection::pointer connection) {
-	api_out_message::send(connection, "STORE FILE\n"
-		"Block-code: " + block_code_.string() + "\n"
-		"Block-name: " + block_name_ + "\n"
+void api_out_store_block::send(api_connection::pointer connection) {
+	api_out_message::send(connection, "STORE BLOCK\n"
+		"Code: " + block_.code().string() + "\n"
+		"Name: " + block_.name() + "\n"
+		"Occurrence: " + boost::lexical_cast<string>(block_.occurrence()) + "\n"
 		"Success: " + (success_ ? "yes" : "no") + "\n"
 		"\n");
 }
 
-// LOAD FILE
+// LOAD BLOCK
 
-api_out_load_file::api_out_load_file(const code &block_code) :
-block_code_(block_code), data_(nullptr) {
+api_out_load_block::api_out_load_block(const block &block, bool success) :
+block_(block), success_(success) {
 }
 
-api_out_load_file::api_out_load_file(const std::string &file_name, size_t file_size, const code &block_code, const BYTE *data) :
-file_name_(file_name), file_size_(file_size), block_code_(block_code), data_(data) {
+api_out_load_block::~api_out_load_block() {
 }
 
-api_out_load_file::~api_out_load_file() {
-}
-
-void api_out_load_file::send(api_connection::pointer connection) {
-	if (data_ != nullptr) {
-		api_out_message::send(connection, "LOAD FILE\n"
-			"Block-code: " + block_code_.string('_') + "\n"
-			"File-name: " + file_name_ + "\n"
-			"File-size: " + boost::lexical_cast<string>(file_size_)+"\n"
-			"\n");
-		api_out_message::send(connection, data_, file_size_);
-	} else {
-		api_out_message::send(connection, "LOAD FILE\n"
-			"Block-code: " + block_code_.string('_') + "\n"
-			"File-size: 0\n"
-			"\n");
-	}
+void api_out_load_block::send(api_connection::pointer connection) {
+	api_out_message::send(connection, "LOAD BLOCK\n"
+		"Code: " + block_.code().string('_') + "\n"
+		"Name: " + block_.name() + "\n"
+		"Owner: " + bytes_to_hex(block_.owner_hash(), 32) + "\n"
+		"Size: " + boost::lexical_cast<string>(block_.size()) + "\n"
+		"Success: " + (success_ ? "yes" : "no") + "\n"
+		"\n");
 }
 
 // PEER INFO
@@ -430,6 +442,35 @@ void api_out_peer_info::send(api_connection::pointer connection) {
 			"Connected: " + (it->second->connected() ? "yes" : "no") + "\n"
 			"In-layer: " + boost::lexical_cast<string>(it->second->in_layer()) + "\n"
 			"Out-layer: " + boost::lexical_cast<string>(it->second->out_layer()) + "\n\n");
+	}
+
+	api_out_message::send(connection, "\n");
+}
+
+// PEER BLOCKS
+
+api_out_peer_blocks::api_out_peer_blocks(const local_peer &local_peer) :
+local_peer_(local_peer) {
+}
+
+api_out_peer_blocks::~api_out_peer_blocks() {
+}
+
+void api_out_peer_blocks::send(api_connection::pointer connection) {
+	api_out_message::send(connection, "PEER BLOCKS\n"
+		"Blocks: " + boost::lexical_cast<string>(local_peer_.blocks()) + "\n\n");
+
+	for (auto it = local_peer_.stored_blocks().begin(); it != local_peer_.stored_blocks().end(); ++it) {
+		block stored_block(*it);
+		stored_block.load_from_filesystem();
+
+		BYTE hash[32];
+		hash_from_rsa(stored_block.owner(), hash);
+
+		api_out_message::send(connection, "Code: " + stored_block.code().string('_') + "\n"
+			"Owner: " + bytes_to_hex(hash, 32) + "\n"
+			"Name: " + stored_block.name() + "\n"
+			"Size: " + boost::lexical_cast<string>(stored_block.size()) + "\n\n");
 	}
 
 	api_out_message::send(connection, "\n");

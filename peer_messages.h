@@ -176,7 +176,7 @@ public:
 class peer_store_block : public peer_message {
 public:
 	peer_store_block(local_peer &local_peer, peer_connection::pointer connection);
-	peer_store_block(local_peer &local_peer, peer_connection::pointer connection, const block *block);
+	peer_store_block(local_peer &local_peer, peer_connection::pointer connection, const block &block);
 	~peer_store_block();
 
 	void first_action(int &type, size_t &expected_size);
@@ -185,13 +185,9 @@ public:
 
 	void send();
 private:
-	const block *block_;
+	block block_;
 
 	UINT32 state_;
-	std::string name_;
-	size_t size_;
-	code code_;
-	BYTE signature_[256];
 	std::string public_key_;
 };
 
@@ -213,7 +209,7 @@ private:
 class peer_stored_block : public peer_message {
 public:
 	peer_stored_block(local_peer &local_peer, peer_connection::pointer connection);
-	peer_stored_block(local_peer &local_peer, peer_connection::pointer connection, const code &code, std::string name, bool success);
+	peer_stored_block(local_peer &local_peer, peer_connection::pointer connection, const block &block, bool success);
 	~peer_stored_block();
 
 	void first_action(int &type, size_t &expected_size);
@@ -222,15 +218,14 @@ public:
 
 	void send();
 private:
-	code code_;
-	std::string name_;
+	block block_;
 	bool success_;
 };
 
 class peer_deliver_block : public peer_message {
 public:
 	peer_deliver_block(local_peer &local_peer, peer_connection::pointer connection);
-	peer_deliver_block(local_peer &local_peer, peer_connection::pointer connection, const block *block);
+	peer_deliver_block(local_peer &local_peer, peer_connection::pointer connection, const block &block, bool success);
 	~peer_deliver_block();
 
 	void first_action(int &type, size_t &expected_size);
@@ -239,14 +234,10 @@ public:
 
 	void send();
 private:
-	const block *block_;
-
 	UINT32 state_;
-	std::string name_;
-	size_t size_;
-	code code_;
-	BYTE signature_[256];
+	block block_;
 	std::string public_key_;
+	bool success_;
 };
 
 }

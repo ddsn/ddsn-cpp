@@ -129,7 +129,7 @@ RSA *local_peer::keypair() {
 
 // blocks
 
-void local_peer::store(const block &block, boost::function<void(const ddsn::code &, const string &, bool)> action) {
+void local_peer::store(const block &block, boost::function<void(const ddsn::block &, bool)> action) {
 	if (!integrated_) {
 		return;
 	}
@@ -137,7 +137,7 @@ void local_peer::store(const block &block, boost::function<void(const ddsn::code
 	if (code_.contains(block.code())) {
 		cout << "Save " << block.code().string('_') << " to filesystem" << endl;
 		if (block.save_to_filesystem() == 0) {
-			action(block.code(), block.name(), true);
+			action(block, true);
 
 			stored_blocks_.insert(block.code());
 
@@ -160,19 +160,19 @@ void local_peer::store(const block &block, boost::function<void(const ddsn::code
 				}
 			}
 		} else {
-			action(block.code(), block.name(), false);
+			action(block, false);
 		}
 	} else {
 		int layer = code_.differing_layer(block.code());
 		auto peer = out_peer(layer, true);
 
-		store_actions_.push_back(std::pair<ddsn::code, boost::function<void(const ddsn::code &, const string &, bool)>>(block.code(), action));
+		store_actions_.push_back(std::pair<ddsn::code, boost::function<void(const ddsn::block &, bool)>>(block.code(), action));
 
-		peer_store_block(*this, peer->connection(), &block).send();
+		peer_store_block(*this, peer->connection(), block).send();
 	}
 }
 
-void local_peer::load(const ddsn::code &block_code, boost::function<void(block&)> action) {
+void local_peer::load(const ddsn::code &block_code, boost::function<void(const block &, bool)> action) {
 	if (!integrated_) {
 		return;
 	}
@@ -181,14 +181,17 @@ void local_peer::load(const ddsn::code &block_code, boost::function<void(block&)
 		cout << "Load " << block_code.string('_') << " from filesystem" << endl;
 		
 		block block(block_code);
-		block.load_from_filesystem();
-
-		action(block);
+		
+		if (block.load_from_filesystem() == 0) {
+			action(block, true);
+		} else {
+			action(block, false);
+		}
 	} else {
 		int layer = code_.differing_layer(block_code);
 		auto peer = out_peer(layer, true);
 
-		load_actions_.push_back(std::pair<ddsn::code, boost::function<void(block&)>>(block_code, action));
+		load_actions_.push_back(std::pair<ddsn::code, boost::function<void(const block &, bool)>>(block_code, action));
 
 		peer_load_block(*this, peer->connection(), block_code).send();
 	}
@@ -196,6 +199,10 @@ void local_peer::load(const ddsn::code &block_code, boost::function<void(block&)
 
 int local_peer::blocks() const {
 	return stored_blocks_.size();
+}
+
+std::unordered_set<ddsn::code> local_peer::stored_blocks() const {
+	return stored_blocks_;
 }
 
 int local_peer::capacity() const {
@@ -206,11 +213,10 @@ void local_peer::set_capacity(int capacity) {
 	capacity_ = capacity;
 }
 
-void ddsn::action_peer_stored_block(local_peer &local_peer, const ddsn::code &code, const string &name, bool success) {
+void ddsn::action_peer_stored_block(local_peer &local_peer, const block &block, bool success) {
 	if (success) {
-		block block(code);
 		block.delete_from_filesystem();
-		local_peer.stored_blocks_.erase(code);
+		local_peer.stored_blocks_.erase(block.code());
 		local_peer.redistribute_block();
 	}
 }
@@ -221,17 +227,17 @@ void local_peer::redistribute_block() {
 			block block(*it);
 			block.load_from_filesystem();
 
-			store(block, boost::bind(&action_peer_stored_block, boost::ref(*this), _1, _2, _3));
+			store(block, boost::bind(&action_peer_stored_block, boost::ref(*this), _1, _2));
 			return;
 		}
 	}
 	splitting_ = false;
 }
 
-void local_peer::do_load_actions(block &block) {
+void local_peer::do_load_actions(const block &block, bool success) {
 	for (auto it = load_actions_.begin(); it != load_actions_.end();) {
 		if (it->first == block.code()) {
-			it->second(block);
+			it->second(block, success);
 			it = load_actions_.erase(it);
 		} else {
 			++it;
@@ -239,10 +245,10 @@ void local_peer::do_load_actions(block &block) {
 	}
 }
 
-void local_peer::do_store_actions(const ddsn::code &code, const std::string &name, bool success) {
+void local_peer::do_store_actions(const block &block, bool success) {
 	for (auto it = store_actions_.begin(); it != store_actions_.end();) {
-		if (it->first == code) {
-			it->second(code, name, success);
+		if (it->first == block.code()) {
+			it->second(block, success);
 			it = store_actions_.erase(it);
 		} else {
 			++it;
