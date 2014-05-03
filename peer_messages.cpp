@@ -724,6 +724,7 @@ void peer_store_block::feed(const std::string &line, int &type, size_t &expected
 			expected_size = size_;
 		} else {
 			public_key_ += line + "\n";
+			type = DDSN_MESSAGE_TYPE_STRING;
 		}
 	}
 }
@@ -931,7 +932,7 @@ void peer_stored_block::send() {
 // DELIVER BLOCK
 
 peer_deliver_block::peer_deliver_block(local_peer &local_peer, peer_connection::pointer connection) :
-peer_message(local_peer, connection) {
+peer_message(local_peer, connection), state_(0) {
 
 }
 
@@ -989,9 +990,9 @@ void peer_deliver_block::feed(const std::string &line, int &type, size_t &expect
 		if (line == "") {
 			type = DDSN_MESSAGE_TYPE_BYTES;
 			expected_size = size_;
-		}
-		else {
+		} else {
 			public_key_ += line + "\n";
+			type = DDSN_MESSAGE_TYPE_STRING;
 		}
 	}
 }

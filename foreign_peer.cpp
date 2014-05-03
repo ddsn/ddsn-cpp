@@ -5,7 +5,7 @@
 using namespace ddsn;
 using namespace std;
 
-foreign_peer::foreign_peer() : public_key_(nullptr), in_layer_(-1), out_layer_(-1), host_(""), port_(-1), integrated_(false) {
+foreign_peer::foreign_peer() : public_key_(nullptr), in_layer_(-1), out_layer_(-1), host_(""), port_(-1), integrated_(false), identity_verified_(false), queued_(false) {
 
 }
 

@@ -10,10 +10,10 @@
 using namespace ddsn;
 using namespace std;
 
-block::block(const string &name) : name_(name), data_(nullptr), size_(0) {
+block::block(const string &name) : name_(name), data_(nullptr), size_(0), owner_(nullptr) {
 }
 
-block::block(const ddsn::code &code) : code_(code), data_(nullptr), size_(0) {
+block::block(const ddsn::code &code) : code_(code), data_(nullptr), size_(0), owner_(nullptr) {
 }
 
 block::~block() {

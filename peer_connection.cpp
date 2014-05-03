@@ -14,7 +14,7 @@ using boost::asio::ip::tcp;
 int peer_connection::connections = 0;
 
 peer_connection::peer_connection(local_peer &local_peer, io_service &io_service) :
-local_peer_(local_peer), socket_(io_service), message_(nullptr), introduced_(false), rcv_buffer_start_(0), rcv_buffer_end_(0) {
+local_peer_(local_peer), socket_(io_service), message_(nullptr), introduced_(false), got_welcome_(false), rcv_buffer_start_(0), rcv_buffer_end_(0) {
 	id_ = connections++;
 	rcv_buffer_ = new BYTE[256];
 	rcv_buffer_size_ = 256;
@@ -67,6 +67,8 @@ void peer_connection::start() {
 }
 
 void peer_connection::send(const string &string) {
+	//cout << "PEER#" << id_ << " send: " << string << endl;
+
 	boost::asio::streambuf *snd_streambuf = new boost::asio::streambuf();
 	ostream ostream(snd_streambuf);
 
@@ -79,6 +81,8 @@ void peer_connection::send(const string &string) {
 }
 
 void peer_connection::send(const BYTE *bytes, size_t size) {
+	//cout << "PEER#" << id_ << " send: " << size << " bytes" << endl;
+
 	boost::asio::streambuf *snd_streambuf = new boost::asio::streambuf();
 	ostream ostream(snd_streambuf);
 
@@ -121,6 +125,8 @@ void peer_connection::handle_read(const boost::system::error_code& error, size_t
 					std::string line((CHAR *)(rcv_buffer_ + rcv_buffer_start_), end_line - rcv_buffer_start_);
 					rcv_buffer_start_ = end_line + 1;
 
+					//cout << "PEER#" << id_ << " receive: string '" << line << "'" << endl;
+
 					if (message_ == nullptr) {
 						message_ = peer_message::create_message(local_peer_, shared_from_this(), line);
 
@@ -140,6 +146,8 @@ void peer_connection::handle_read(const boost::system::error_code& error, size_t
 				}
 			} else {
 				if (read_bytes_ <= buffer_data) {
+					//cout << "PEER#" << id_ << " receive: " << read_bytes_ << " bytes" << endl;
+
 					int tmp = read_bytes_;
 					message_->feed(rcv_buffer_ + rcv_buffer_start_, read_bytes_, read_type_, read_bytes_);
 					rcv_buffer_start_ += tmp;
