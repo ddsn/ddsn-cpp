@@ -325,6 +325,19 @@ void local_peer::add_foreign_peer(std::shared_ptr<foreign_peer> foreign_peer) {
 		}
 
 		peer_connect(*this, foreign_peer->connection(), layer, code).send();
+
+		bool ready_for_integration = true;
+		for (UINT32 i = 0; i < code_.layers(); i++) {
+			if (!out_peer(i)) {
+				ready_for_integration = false;
+				break;
+			}
+		}
+
+		if (ready_for_integration) {
+			integrated_ = true;
+			peer_integrated(*this, mentor_->connection()).send();
+		}
 	} else if (foreign_peer->identity_verified() && foreign_peer->connected() && foreign_peer->out_layer() == -1 && foreign_peer->in_layer() == -1) {
 		if (stored_blocks_.size() > capacity_) {
 			foreign_peer->set_queued(false);
@@ -354,8 +367,6 @@ std::shared_ptr<foreign_peer> local_peer::connected_queued_peer() const {
 	}
 	return nullptr;
 }
-
-// private methods
 
 std::shared_ptr<foreign_peer> local_peer::out_peer(int layer, bool connected) const {
 	for (auto it = foreign_peers_.begin(); it != foreign_peers_.end(); ++it) {

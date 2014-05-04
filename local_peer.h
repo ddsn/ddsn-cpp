@@ -71,8 +71,8 @@ public:
 	void add_foreign_peer(std::shared_ptr<foreign_peer> foreign_peer);
 	const std::unordered_map<peer_id, std::shared_ptr<foreign_peer>> &foreign_peers() const;
 	std::shared_ptr<foreign_peer> connected_queued_peer() const;
-private:
 	std::shared_ptr<foreign_peer> out_peer(int layer, bool connected = true) const;
+private:
 
 	boost::asio::io_service &io_service_;
 	ddsn::api_server *api_server_;

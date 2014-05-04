@@ -159,6 +159,7 @@ void peer_hello::feed(const std::string &line, int &type, size_t &expected_size)
 				if (field_value == "queued") {
 					connection_->foreign_peer()->set_queued(true);
 				} else {
+					// for example: introduce
 					connection_->foreign_peer()->set_queued(false);
 				}
 			}
@@ -401,10 +402,13 @@ void peer_set_code::feed(const std::string &line, int &type, size_t &expected_si
 
 		local_peer_.set_mentor(connection_->foreign_peer());
 
-		// TODO: Wait for peer introductions
-		local_peer_.set_integrated(true);
-
-		peer_integrated(local_peer_, connection_).send();
+		if (layer == 0) {
+			// got all needed peers
+			local_peer_.set_integrated(true);
+			peer_integrated(local_peer_, connection_).send();
+		} else {
+			// wait for peers to be introduced
+		}
 
 		type = DDSN_MESSAGE_TYPE_END;
 	} else {
@@ -480,9 +484,15 @@ void peer_get_code::feed(const std::string &line, int &type, size_t &expected_si
 		local_code.set_layer_code(layer, 0);
 		local_peer_.set_code(local_code);
 
-		// TODO: Introcude peers
+		cout << "Introducing peers..." << endl;
 
-		cout << "Should introduce peers now..." << endl;
+		for (UINT32 out_layer = 0; out_layer < layer; out_layer++) {
+			auto out_peer = local_peer_.out_peer(out_layer);
+
+			if (out_peer) {
+				peer_introduce(local_peer_, connection_, out_peer->id(), out_peer->host(), out_peer->port(), out_layer).send();
+			}
+		}
 
 		type = DDSN_MESSAGE_TYPE_END;
 	} else {
@@ -573,6 +583,7 @@ void peer_introduce::feed(const BYTE *data, size_t size, int &type, size_t &expe
 
 	auto it = local_peer_.foreign_peers().find(peer_id);
 	if (it != local_peer_.foreign_peers().end()) {
+		it->second->set_out_layer(layer_);
 		if (it->second->connected()) {
 			code code;
 			code.resize_layers(layer_);
@@ -583,11 +594,10 @@ void peer_introduce::feed(const BYTE *data, size_t size, int &type, size_t &expe
 		} else {
 			local_peer_.connect(host_, port_, it->second, "introduce");
 		}
-		it->second->set_out_layer(layer_);
 	} else {
 		shared_ptr<foreign_peer> new_peer(new foreign_peer());
-		local_peer_.connect(host_, port_, new_peer, "introduce");
 		new_peer->set_out_layer(layer_);
+		local_peer_.connect(host_, port_, new_peer, "introduce");
 	}
 
 	type = DDSN_MESSAGE_TYPE_END;
@@ -619,10 +629,38 @@ peer_connect::~peer_connect() {
 }
 
 void peer_connect::first_action(int &type, size_t &expected_size) {
-
+	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
 void peer_connect::feed(const std::string &line, int &type, size_t &expected_size) {
+	if (line == "") {
+		// TODO: Check code and layer
+		connection_->foreign_peer()->set_in_layer(layer_);
+
+		type = DDSN_MESSAGE_TYPE_END;
+		return;
+	} else {
+		size_t colon_pos = line.find(": ");
+		if (colon_pos == string::npos) {
+			type = DDSN_MESSAGE_TYPE_ERROR;
+			return;
+		}
+		string field_name = line.substr(0, colon_pos);
+		string field_value = line.substr(colon_pos + 2);
+
+		if (field_name == "Code") {
+			code_ = code(field_value);
+		} else if (field_name == "Layer") {
+			try {
+				layer_ = stoi(field_value);
+			} catch (...) {
+				type = DDSN_MESSAGE_TYPE_ERROR;
+				return;
+			}
+		}
+
+		type = DDSN_MESSAGE_TYPE_STRING;
+	}
 }
 
 void peer_connect::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
@@ -710,13 +748,15 @@ void peer_store_block::feed(const std::string &line, int &type, size_t &expected
 				try {
 					block_.set_occurrence(stoi(field_value));
 				} catch (...) {
-
+					type = DDSN_MESSAGE_TYPE_ERROR;
+					return;
 				}
 			} else if (field_name == "Size") {
 				try {
 					block_.set_size(stoi(field_value));
 				} catch (...) {
-
+					type = DDSN_MESSAGE_TYPE_ERROR;
+					return;
 				}
 			}
 
@@ -735,7 +775,7 @@ void peer_store_block::feed(const std::string &line, int &type, size_t &expected
 	}
 }
 
-void action_peer_store_block(local_peer &local_peer, peer_connection::pointer connection, const block &block, bool success) {
+static void action_peer_store_block(local_peer &local_peer, peer_connection::pointer connection, const block &block, bool success) {
 	peer_stored_block(local_peer, connection, block, success).send();
 }
 
@@ -910,7 +950,8 @@ void peer_stored_block::feed(const std::string &line, int &type, size_t &expecte
 			try {
 				block_.set_occurrence(stoi(field_value));
 			} catch (...) {
-
+				type = DDSN_MESSAGE_TYPE_ERROR;
+				return;
 			}
 		} else if (field_name == "Owner") {
 			BYTE owner_hash[32];
@@ -986,13 +1027,15 @@ void peer_deliver_block::feed(const std::string &line, int &type, size_t &expect
 				try {
 					block_.set_occurrence(stoi(field_value));
 				} catch (...) {
-
+					type = DDSN_MESSAGE_TYPE_ERROR;
+					return;
 				}
 			} else if (field_name == "Size") {
 				try {
 					block_.set_size(stoi(field_value));
 				} catch (...) {
-
+					type = DDSN_MESSAGE_TYPE_ERROR;
+					return;
 				}
 			} else if (field_name == "Success") {
 				success_ = field_value == "yes";
