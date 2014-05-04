@@ -325,6 +325,19 @@ void local_peer::add_foreign_peer(std::shared_ptr<foreign_peer> foreign_peer) {
 		}
 
 		peer_connect(*this, foreign_peer->connection(), layer, code).send();
+	} else if (foreign_peer->identity_verified() && foreign_peer->connected() && foreign_peer->out_layer() == -1 && foreign_peer->in_layer() == -1) {
+		if (stored_blocks_.size() > capacity_) {
+			foreign_peer->set_queued(false);
+			splitting_ = true;
+
+			// generate new peer code with a trailing 1
+			ddsn::code new_code = code_;
+			int layers = new_code.layers();
+			new_code.resize_layers(layers + 1);
+			new_code.set_layer_code(layers, 1);
+
+			peer_set_code(*this, foreign_peer->connection(), new_code).send();
+		}
 	}
 }
 
