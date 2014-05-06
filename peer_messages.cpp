@@ -498,7 +498,7 @@ void peer_get_code::feed(const std::string &line, int &type, size_t &expected_si
 			return;
 		}
 
-		for (int i = 0; i < local_peer_.code().layers(); i++) {
+		for (UINT32 i = 0; i < local_peer_.code().layers(); i++) {
 			if (code_.layer_code(i) != code_.layer_code(i)) {
 				return;
 			}
@@ -506,7 +506,7 @@ void peer_get_code::feed(const std::string &line, int &type, size_t &expected_si
 
 		// code is correct!
 
-		int layer = local_peer_.code().layers();
+		UINT32 layer = local_peer_.code().layers();
 
 		connection_->foreign_peer()->set_out_layer(layer);
 		connection_->foreign_peer()->set_in_layer(layer);

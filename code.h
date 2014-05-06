@@ -23,7 +23,7 @@ public:
 
 	void resize_layers(UINT32 layers);
 
-	int layers() const;
+	UINT32 layers() const;
 
 	bool contains(const code &code) const;
 	int differing_layer(const code &code) const;

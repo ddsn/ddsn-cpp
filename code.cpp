@@ -120,7 +120,7 @@ void code::resize_layers(UINT32 layers) {
 	}
 }
 
-int code::layers() const {
+UINT32 code::layers() const {
 	return layers_;
 }
 
