@@ -237,6 +237,8 @@ void peer_hello::send() {
 
 	// actually a string, but we can use byte verion of send
 	peer_message::send(pub_key, pub_len);
+
+	delete[] pub_key;
 }
 
 // PROVE IDENTITY
@@ -880,6 +882,8 @@ void peer_store_block::send() {
 	peer_message::send(pub_key, pub_len);
 	peer_message::send("\n");
 
+	delete[] pub_key;
+
 	// send data
 	peer_message::send(block_.data(), block_.size());
 }
@@ -1165,6 +1169,8 @@ void peer_deliver_block::send() {
 		// actually a string, but we can use byte verion of send
 		peer_message::send(pub_key, pub_len);
 		peer_message::send("\n");
+
+		delete[] pub_key;
 
 		// send data
 		peer_message::send(block_.data(), block_.size());
