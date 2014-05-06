@@ -10,6 +10,19 @@
 using namespace ddsn;
 using namespace std;
 
+block ddsn::block::copy_without_data(const block &block) {
+	ddsn::block block_cp;
+	
+	block_cp.set_code(block.code_);
+	block_cp.set_name(block.name_);
+	block_cp.set_occurrence(block.occurrence_);
+	block_cp.set_owner_hash(block.owner_hash_);
+	block_cp.set_signature(block.signature_);
+	block_cp.set_size(block.size_);
+
+	return block_cp;
+}
+
 block::block() : data_(nullptr), size_(0), owner_(nullptr), occurrence_(0) {
 }
 
@@ -102,7 +115,7 @@ void block::set_owner(RSA *owner) {
 	hash_from_rsa(owner, owner_hash_);
 }
 
-void block::set_owner_hash(BYTE owner_hash[32]) {
+void block::set_owner_hash(const BYTE owner_hash[32]) {
 	memcpy(owner_hash_, owner_hash, 32);
 }
 
@@ -204,8 +217,12 @@ int block::save_to_filesystem() const {
 
 		BIO_read(pub, pub_key, pub_len);
 
+		BIO_free(pub);
+
 		file.write(pub_key, pub_len);
 		file.write("\n", 1);
+
+		delete[] pub_key;
 
 		// and the data
 

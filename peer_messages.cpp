@@ -233,6 +233,8 @@ void peer_hello::send() {
 
 	BIO_read(pub, pub_key, pub_len);
 
+	BIO_free(pub);
+
 	// actually a string, but we can use byte verion of send
 	peer_message::send(pub_key, pub_len);
 }
@@ -828,6 +830,8 @@ void peer_store_block::feed(const BYTE *data, size_t size, int &type, size_t &ex
 		RSA *owner = nullptr;
 		PEM_read_bio_RSAPublicKey(pub, &owner, NULL, NULL);
 
+		BIO_free(pub);
+
 		block_.set_owner(owner);
 
 		// data
@@ -869,6 +873,8 @@ void peer_store_block::send() {
 	BYTE *pub_key = new BYTE[pub_len];
 
 	BIO_read(pub, pub_key, pub_len);
+
+	BIO_free(pub);
 
 	// actually a string, but we can use byte verion of send
 	peer_message::send(pub_key, pub_len);
@@ -943,7 +949,7 @@ peer_message(local_peer, connection) {
 }
 
 peer_stored_block::peer_stored_block(local_peer &local_peer, peer_connection::pointer connection, const block &block, bool success) :
-peer_message(local_peer, connection), block_(block), success_(success) {
+peer_message(local_peer, connection), block_(block::copy_without_data(block)), success_(success) {
 
 }
 
@@ -1105,6 +1111,8 @@ void peer_deliver_block::feed(const BYTE *data, size_t size, int &type, size_t &
 		RSA *owner = nullptr;
 		PEM_read_bio_RSAPublicKey(pub, &owner, NULL, NULL);
 
+		BIO_free(pub);
+
 		block_.set_owner(owner);
 
 		// data
@@ -1153,6 +1161,8 @@ void peer_deliver_block::send() {
 		BYTE *pub_key = new BYTE[pub_len];
 
 		BIO_read(pub, pub_key, pub_len);
+
+		BIO_free(pub);
 
 		// actually a string, but we can use byte verion of send
 		peer_message::send(pub_key, pub_len);

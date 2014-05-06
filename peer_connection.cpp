@@ -14,15 +14,21 @@ using boost::asio::ip::tcp;
 int peer_connection::connections = 0;
 
 peer_connection::peer_connection(local_peer &local_peer, io_service &io_service) :
-local_peer_(local_peer), socket_(io_service), message_(nullptr), introduced_(false), got_welcome_(false), rcv_buffer_start_(0), rcv_buffer_end_(0) {
+local_peer_(local_peer), socket_(io_service), message_(nullptr), introduced_(false), got_welcome_(false),
+rcv_buffer_start_(0), rcv_buffer_end_(0), snd_buffer_start_(0), snd_buffer_end_(0) {
 	id_ = connections++;
+
 	rcv_buffer_ = new BYTE[256];
 	rcv_buffer_size_ = 256;
+
+	snd_buffer_ = new BYTE[256];
+	snd_buffer_size_ = 256;
 }
 
 peer_connection::~peer_connection() {
 	cout << "PEER#" << id_ << " DELETED" << endl;
 	delete[] rcv_buffer_;
+	delete[] snd_buffer_;
 }
 
 bool peer_connection::introduced() const {
@@ -67,31 +73,78 @@ void peer_connection::start() {
 }
 
 void peer_connection::send(const string &string) {
-	cout << "PEER#" << id_ << " send: " << string << endl;
-
-	boost::asio::streambuf *snd_streambuf = new boost::asio::streambuf();
-	ostream ostream(snd_streambuf);
-
-	ostream << string;
-
-	boost::asio::async_write(socket_, *snd_streambuf, boost::bind(&peer_connection::handle_write, shared_from_this(),
-		snd_streambuf,
-		boost::asio::placeholders::error,
-		boost::asio::placeholders::bytes_transferred));
+	send((BYTE *)string.c_str(), string.length());
 }
 
 void peer_connection::send(const BYTE *bytes, size_t size) {
-	cout << "PEER#" << id_ << " send: " << size << " bytes" << endl;
+	// data still to be sent
+	size_t buffer_data = snd_buffer_end_ - snd_buffer_start_;
 
-	boost::asio::streambuf *snd_streambuf = new boost::asio::streambuf();
-	ostream ostream(snd_streambuf);
+	// space at the end of the buffer
+	size_t buffer_space = snd_buffer_size_ - snd_buffer_end_;
 
-	ostream.write((CHAR *)bytes, size);
+	if (buffer_data == 0) {
+		snd_buffer_start_ = 0;
+		snd_buffer_end_ = 0;
+	}
 
-	boost::asio::async_write(socket_, *snd_streambuf, boost::asio::transfer_exactly(size), boost::bind(&peer_connection::handle_write, shared_from_this(),
-		snd_streambuf,
-		boost::asio::placeholders::error,
-		boost::asio::placeholders::bytes_transferred));
+	if (size > buffer_space) {
+		if (size <= snd_buffer_size_ - buffer_data) {
+			// shift to beginning to create space at the end (doesn't resize the buffer)
+			memmove(snd_buffer_, snd_buffer_ + snd_buffer_start_, buffer_data);
+
+			snd_buffer_start_ = 0;
+			snd_buffer_end_ = buffer_data;
+			//new_buffer_space = snd_buffer_size_ - buffer_data;
+		} else {
+			// enlarge buffer space for expected bytes to next power of 2
+			snd_buffer_size_ = next_power(buffer_data + size);
+			BYTE *new_buffer = new BYTE[snd_buffer_size_];
+			memcpy(new_buffer, snd_buffer_ + snd_buffer_start_, buffer_data);
+			delete[] snd_buffer_;
+			snd_buffer_ = new_buffer;
+
+			snd_buffer_start_ = 0;
+			snd_buffer_end_ = buffer_data;
+			//new_buffer_space = snd_buffer_size_ - buffer_data;
+		}
+	}
+
+	// copy the data to the buffer
+	memcpy(snd_buffer_ + snd_buffer_end_, bytes, size);
+
+	snd_buffer_end_ += size;
+
+
+	if (buffer_data == 0) {
+		// only send when there's not already a send request in the queue
+		// if buffer_data != 0 handle_write will call async_write_some
+		socket_.async_write_some(boost::asio::buffer(snd_buffer_ + snd_buffer_start_, buffer_data + size), boost::bind(&peer_connection::handle_write, shared_from_this(),
+			boost::asio::placeholders::error,
+			boost::asio::placeholders::bytes_transferred));
+	}
+}
+
+void peer_connection::handle_write(const boost::system::error_code& error, size_t bytes_transferred) {
+	if (error) {
+		cout << "An error occurred: " << error.message() << endl;
+		close();
+	}
+
+	if (bytes_transferred) {
+		snd_buffer_start_ += bytes_transferred;
+
+		size_t buffer_data = snd_buffer_end_ - snd_buffer_start_;
+
+		if (buffer_data != 0) {
+			socket_.async_write_some(boost::asio::buffer(snd_buffer_ + snd_buffer_start_, buffer_data), boost::bind(&peer_connection::handle_write, shared_from_this(),
+				boost::asio::placeholders::error,
+				boost::asio::placeholders::bytes_transferred));
+		}
+	} else {
+		cout << "An error occurred: no bytes transferred" << endl;
+		close();
+	}
 }
 
 void peer_connection::handle_read(const boost::system::error_code& error, size_t bytes_transferred) {
@@ -125,8 +178,6 @@ void peer_connection::handle_read(const boost::system::error_code& error, size_t
 					std::string line((CHAR *)(rcv_buffer_ + rcv_buffer_start_), end_line - rcv_buffer_start_);
 					rcv_buffer_start_ = end_line + 1;
 
-					cout << "PEER#" << id_ << " receive: string '" << line << "'" << endl;
-
 					if (message_ == nullptr) {
 						message_ = peer_message::create_message(local_peer_, shared_from_this(), line);
 
@@ -146,8 +197,6 @@ void peer_connection::handle_read(const boost::system::error_code& error, size_t
 				}
 			} else {
 				if (read_bytes_ <= buffer_data) {
-					cout << "PEER#" << id_ << " receive: " << read_bytes_ << " bytes" << endl;
-
 					int tmp = read_bytes_;
 					message_->feed(rcv_buffer_ + rcv_buffer_start_, read_bytes_, read_type_, read_bytes_);
 					rcv_buffer_start_ += tmp;
@@ -182,17 +231,19 @@ void peer_connection::handle_read(const boost::system::error_code& error, size_t
 			rcv_buffer_end_ = 0;
 		}
 
-		size_t buffer_size = rcv_buffer_size_ - rcv_buffer_end_;
+		size_t buffer_space = rcv_buffer_size_ - rcv_buffer_end_;
+		size_t bytes_to_read = read_bytes_ - buffer_data;
 
-		if (buffer_size < 16 || (read_type_ == DDSN_MESSAGE_TYPE_BYTES && read_bytes_ > buffer_size)) {
-			if (read_type_ == DDSN_MESSAGE_TYPE_STRING && rcv_buffer_start_ == 0 && buffer_size == 0) {
+		if (buffer_space < 16 || (read_type_ == DDSN_MESSAGE_TYPE_BYTES && bytes_to_read > buffer_space)) {
+			// we deem the buffer too small
+			if (read_type_ == DDSN_MESSAGE_TYPE_STRING && rcv_buffer_start_ == 0 && buffer_space == 0) {
 				// double buffer space because string seems to be too long for current buffer
 				BYTE *new_buffer = new BYTE[rcv_buffer_size_ * 2];
 				memcpy(new_buffer, rcv_buffer_, rcv_buffer_size_);
 				delete[] rcv_buffer_;
 				rcv_buffer_ = new_buffer;
 
-				buffer_size = rcv_buffer_size_;
+				buffer_space = rcv_buffer_size_;
 				rcv_buffer_size_ = rcv_buffer_size_ * 2;
 
 				if (rcv_buffer_size_ > DDSN_MESSAGE_STRING_MAX_LENGTH) {
@@ -200,13 +251,13 @@ void peer_connection::handle_read(const boost::system::error_code& error, size_t
 					close();
 					return;
 				}
-			} else if (read_type_ == DDSN_MESSAGE_TYPE_STRING || read_bytes_ <= rcv_buffer_size_) {
+			} else if (read_type_ == DDSN_MESSAGE_TYPE_STRING || bytes_to_read <= rcv_buffer_size_) {
 				// shift to beginning to create space at the end (doesn't resize the buffer)
 				memmove(rcv_buffer_, rcv_buffer_ + rcv_buffer_start_, buffer_data);
 
 				rcv_buffer_start_ = 0;
 				rcv_buffer_end_ = buffer_data;
-				buffer_size = rcv_buffer_size_ - buffer_data;
+				buffer_space = rcv_buffer_size_ - buffer_data;
 			} else {
 				// enlarge buffer space for expected bytes to next power of 2
 				rcv_buffer_size_ = next_power(read_bytes_);
@@ -217,18 +268,17 @@ void peer_connection::handle_read(const boost::system::error_code& error, size_t
 
 				rcv_buffer_start_ = 0;
 				rcv_buffer_end_ = buffer_data;
-				buffer_size = rcv_buffer_size_ - buffer_data;
+				buffer_space = rcv_buffer_size_ - buffer_data;
 			}
 		}
 
-		socket_.async_read_some(boost::asio::buffer(rcv_buffer_ + rcv_buffer_end_, buffer_size), boost::bind(&peer_connection::handle_read, shared_from_this(),
+		socket_.async_read_some(boost::asio::buffer(rcv_buffer_ + rcv_buffer_end_, buffer_space), boost::bind(&peer_connection::handle_read, shared_from_this(),
 			boost::asio::placeholders::error,
 			boost::asio::placeholders::bytes_transferred));
+	} else {
+		cout << "An error occurred: no bytes transferred" << endl;
+		close();
 	}
-}
-
-void peer_connection::handle_write(boost::asio::streambuf *snd_streambuf, const boost::system::error_code& error, size_t bytes_transferred) {
-	delete snd_streambuf;
 }
 
 void peer_connection::close() {

@@ -11,6 +11,8 @@ namespace ddsn {
 
 class block {
 public:
+	static block copy_without_data(const block &block);
+
 	block();
 	block(const std::string &name);
 	block(const code &code);
@@ -32,7 +34,7 @@ public:
 	void set_data(const BYTE *data, size_t size);
 	void set_size(size_t size);
 	void set_owner(RSA *owner);
-	void set_owner_hash(BYTE owner_hash[32]);
+	void set_owner_hash(const BYTE owner_hash[32]);
 	void set_occurrence(UINT32 occurrence);
 
 	// create code and signature from name and data

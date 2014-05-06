@@ -39,7 +39,7 @@ private:
 	void send(const BYTE *bytes, size_t size);
 
 	void handle_read(const boost::system::error_code& error, std::size_t bytes_transferred);
-	void handle_write(boost::asio::streambuf *snd_streambuf, const boost::system::error_code& error, std::size_t bytes_transferred);
+	void handle_write(const boost::system::error_code& error, std::size_t bytes_transferred);
 
 	api_server &server_;
 	local_peer &local_peer_;
@@ -48,11 +48,16 @@ private:
 
 	bool authenticated_;
 
-	boost::asio::streambuf rcv_streambuf_;
 	BYTE *rcv_buffer_;
 	size_t rcv_buffer_start_;
 	size_t rcv_buffer_end_;
 	size_t rcv_buffer_size_;
+
+	BYTE *snd_buffer_;
+	size_t snd_buffer_start_;
+	size_t snd_buffer_end_;
+	size_t snd_buffer_size_;
+
 	api_in_message *message_;
 
 	int read_type_;
