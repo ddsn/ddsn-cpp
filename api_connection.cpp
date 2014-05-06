@@ -164,6 +164,7 @@ void api_connection::handle_read(const boost::system::error_code& error, std::si
 			return;
 		}
 
+		// if there's nothing left in the buffer to be processes, we can start using the buffer from the beginning
 		if (buffer_data == 0) {
 			rcv_buffer_start_ = 0;
 			rcv_buffer_end_ = 0;

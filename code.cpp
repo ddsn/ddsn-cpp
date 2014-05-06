@@ -184,7 +184,7 @@ code &code::operator=(const code &code) {
 }
 
 string code::string(char delim) const {
-	std::string string;
+	std::string string = "";
 	UINT32 i = 0;
 	for (; i + 3 < layers_; i += 4) {
 		int digit = layer_code(i) << 3 | layer_code(i + 1) << 2 | layer_code(i + 2) << 1 | layer_code(i + 3);

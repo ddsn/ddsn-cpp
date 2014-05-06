@@ -71,9 +71,8 @@ private:
 class peer_verify_identity : public peer_message {
 public:
 	peer_verify_identity(local_peer &local_peer, peer_connection::pointer connection);
+	peer_verify_identity(local_peer &local_peer, peer_connection::pointer connection, const std::string &message);
 	~peer_verify_identity();
-
-	void set_message(const std::string &message);
 
 	void first_action(int &type, size_t &expected_size);
 	void feed(const std::string &line, int &type, size_t &expected_size);

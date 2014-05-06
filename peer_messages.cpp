@@ -63,6 +63,21 @@ void peer_message::send(const BYTE *bytes, size_t size) {
 
 // HELLO
 
+/* 
+ * First message to be sent to a newly connected peer.
+ * Contains the public key and host and port which will be needed when introducing 
+ * this peer to other peers later.
+ * The type denotes for which reason the peer connected. Currently, this can
+ * be either the intention to become part of the network or the intention of
+ * getting a new out connection.
+ * == Sending perspective ==
+ * Say hello to a new peer. Either queue up for getting part of the network (type == 'queued')
+ * or otherwise tell your intention later (type != 'queued')
+ * == Receiving perspective ==
+ * As a response the connecting peer is requested to prove its identity by
+ * delivering a message which has to be signed by the connecting peer. (see @peer_prove_identity)
+ */
+
 peer_hello::peer_hello(local_peer &local_peer, peer_connection::pointer connection) :
 peer_message(local_peer, connection), state_(0) {
 
@@ -78,61 +93,13 @@ peer_hello::~peer_hello() {
 }
 
 void peer_hello::first_action(int &type, size_t &expected_size) {
-	type = DDSN_MESSAGE_TYPE_BYTES;
-	expected_size = 32;
+	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
 void peer_hello::feed(const std::string &line, int &type, size_t &expected_size) {
 	if (state_ == 0) {
-		if (line != "-----BEGIN RSA PUBLIC KEY-----") {
-			public_key_ += line + "\n";
-
-			type = DDSN_MESSAGE_TYPE_ERROR;
-			return;
-		} else {
-			public_key_ = "-----BEGIN RSA PUBLIC KEY-----\n";
-
-			state_ = 1;
-			type = DDSN_MESSAGE_TYPE_STRING;
-		}
-	} else if (state_ == 1) {
-		if (line == "-----END RSA PUBLIC KEY-----") {
-			public_key_ += "-----END RSA PUBLIC KEY-----\n";
-
-			connection_->foreign_peer()->set_public_key_str(public_key_);
-
-			// check if this matches the id
-
-			BYTE hash[32];
-			hash_from_rsa(connection_->foreign_peer()->public_key(), hash);
-
-			if (memcmp(hash, connection_->foreign_peer()->id().id(), 32) != 0) {
-				cout << "Peer appears to be a fraud" << endl;
-				type = DDSN_MESSAGE_TYPE_ERROR;
-			}
-
-			connection_->foreign_peer()->set_verification_number(rand()); // TODO: make it random
-
-			cout << "PEER#" << connection_->id() << " random number: " << connection_->foreign_peer()->verification_number() << endl;
-
-			state_ = 2;
-
-			type = DDSN_MESSAGE_TYPE_STRING;
-		} else {
-			public_key_ += line + "\n";
-
-			type = DDSN_MESSAGE_TYPE_STRING;
-		}
-	} else if (state_ == 2) {
 		if (line == "") {
-			if (connection_->foreign_peer()->host() == "" || connection_->foreign_peer()->port() == -1) {
-				type = DDSN_MESSAGE_TYPE_ERROR;
-				return;
-			} else {
-				peer_prove_identity(local_peer_, connection_).send();
-
-				type = DDSN_MESSAGE_TYPE_END;
-			}
+			state_ = 1;
 		} else {
 			size_t colon_pos = line.find(": ");
 			if (colon_pos == string::npos) {
@@ -142,7 +109,35 @@ void peer_hello::feed(const std::string &line, int &type, size_t &expected_size)
 			string field_name = line.substr(0, colon_pos);
 			string field_value = line.substr(colon_pos + 2);
 
-			if (field_name == "Host") {
+			if (field_name == "Id") {
+				if (field_value.length() == 64) {
+					BYTE foreign_id_bytes[32];
+					hex_to_bytes(field_value, foreign_id_bytes, 32);
+					peer_id foreign_id(foreign_id_bytes);
+
+					if (foreign_id == local_peer_.id()) {
+						// that's myself!
+						type = DDSN_MESSAGE_TYPE_ERROR;
+						return;
+					}
+
+					auto it = local_peer_.foreign_peers().find(foreign_id);
+					if (it != local_peer_.foreign_peers().end()) {
+						// already know you!
+						if (it->second->connected()) {
+							// and I'm already connected to you!
+							type = DDSN_MESSAGE_TYPE_ERROR;
+							return;
+						} else {
+							connection_->set_foreign_peer(it->second);
+						}
+					} else {
+						connection_->foreign_peer()->set_id(foreign_id);
+					}
+				} else {
+					type = DDSN_MESSAGE_TYPE_END;
+				}
+			} else if (field_name == "Host") {
 				if (field_value == "") {
 					connection_->foreign_peer()->set_host(boost::lexical_cast<std::string>(connection_->socket().remote_endpoint().address()));
 				} else {
@@ -164,40 +159,67 @@ void peer_hello::feed(const std::string &line, int &type, size_t &expected_size)
 				}
 			}
 		}
+	} else if (state_ == 1) {
+		if (line != "-----BEGIN RSA PUBLIC KEY-----") {
+			public_key_ += line + "\n";
+
+			type = DDSN_MESSAGE_TYPE_ERROR;
+			return;
+		} else {
+			public_key_ = "-----BEGIN RSA PUBLIC KEY-----\n";
+
+			state_ = 2;
+			type = DDSN_MESSAGE_TYPE_STRING;
+		}
+	} else if (state_ == 2) {
+		if (line == "-----END RSA PUBLIC KEY-----") {
+			public_key_ += "-----END RSA PUBLIC KEY-----\n";
+
+			connection_->foreign_peer()->set_public_key_str(public_key_);
+
+			// check if this matches the id
+
+			BYTE hash[32];
+			hash_from_rsa(connection_->foreign_peer()->public_key(), hash);
+
+			if (memcmp(hash, connection_->foreign_peer()->id().id(), 32) != 0) {
+				cout << "Peer appears to be a fraud" << endl;
+				type = DDSN_MESSAGE_TYPE_ERROR;
+			}
+
+			connection_->foreign_peer()->set_verification_number(rand()); // TODO: make it random
+
+			cout << "PEER#" << connection_->id() << " random number: " << connection_->foreign_peer()->verification_number() << endl;
+
+			if (connection_->foreign_peer()->host() == "" || connection_->foreign_peer()->port() == -1) {
+				type = DDSN_MESSAGE_TYPE_ERROR;
+				return;
+			} else {
+				peer_prove_identity(local_peer_, connection_).send();
+
+				type = DDSN_MESSAGE_TYPE_END;
+			}
+
+			type = DDSN_MESSAGE_TYPE_END;
+		} else {
+			public_key_ += line + "\n";
+
+			type = DDSN_MESSAGE_TYPE_STRING;
+		}
 	}
 }
 
 void peer_hello::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
-	if (size == 32) {
-		peer_id foreign_id((BYTE *)data);
 
-		if (foreign_id == local_peer_.id()) {
-			// that's myself!
-			type = DDSN_MESSAGE_TYPE_ERROR;
-			return;
-		}
-
-		auto it = local_peer_.foreign_peers().find(foreign_id);
-		if (it != local_peer_.foreign_peers().end()) {
-			// already know you!
-			if (it->second->connected()) {
-				// and I'm already connected to you!
-				type = DDSN_MESSAGE_TYPE_ERROR;
-				return;
-			} else {
-				connection_->set_foreign_peer(it->second);
-			}
-		} else {
-			connection_->foreign_peer()->set_id(foreign_id);
-		}
-
-		type = DDSN_MESSAGE_TYPE_STRING;
-	}
 }
 
 void peer_hello::send() {
-	peer_message::send("HELLO\n");
-	peer_message::send(local_peer_.id().id(), 32);
+	peer_message::send("HELLO\n"
+		"Id: " + bytes_to_hex(local_peer_.id().id(), 32) + "\n"
+		"Host: " + local_peer_.host() + "\n"
+		"Port: " + boost::lexical_cast<string>(local_peer_.port()) + "\n"
+		"Type: " + type_ + "\n"
+		"\n");
 
 	// send public key in pem format
 
@@ -213,14 +235,16 @@ void peer_hello::send() {
 
 	// actually a string, but we can use byte verion of send
 	peer_message::send(pub_key, pub_len);
-
-	peer_message::send("Host: " + local_peer_.host() + "\n"
-		"Port: " + boost::lexical_cast<string>(local_peer_.port()) + "\n"
-		"Type: " + type_ + "\n"
-		"\n");
 }
 
 // PROVE IDENTITY
+
+/*
+ * == Sending perspecive ==
+ * Sends a message to be signed by the connected peer in order to prove its identity.
+ * == Receiving perspective ==
+ * Reads a message, signs it and sends the signature back. (see @peer_verify_identity)
+ */
 
 peer_prove_identity::peer_prove_identity(local_peer &local_peer, peer_connection::pointer connection) :
 peer_message(local_peer, connection) {
@@ -237,8 +261,7 @@ void peer_prove_identity::first_action(int &type, size_t &expected_size) {
 
 void peer_prove_identity::feed(const std::string &line, int &type, size_t &expected_size) {
 	if (line == "") {
-		peer_verify_identity message(local_peer_, connection_);
-		message.set_message(message_);
+		peer_verify_identity message(local_peer_, connection_, message_);
 		message.send();
 
 		type = DDSN_MESSAGE_TYPE_END;
@@ -261,17 +284,22 @@ void peer_prove_identity::send() {
 
 // VERIFY IDENTITY
 
+/*
+ * 
+ */
+
 peer_verify_identity::peer_verify_identity(local_peer &local_peer, peer_connection::pointer connection) :
 peer_message(local_peer, connection) {
 
 }
 
-peer_verify_identity::~peer_verify_identity() {
+peer_verify_identity::peer_verify_identity(local_peer &local_peer, peer_connection::pointer connection, const std::string &message) :
+peer_message(local_peer, connection), message_(message) {
 
 }
 
-void peer_verify_identity::set_message(const std::string &message) {
-	message_ = message;
+peer_verify_identity::~peer_verify_identity() {
+
 }
 
 void peer_verify_identity::first_action(int &type, size_t &expected_size) {

@@ -22,7 +22,7 @@ block::block(const ddsn::code &code) : code_(code), data_(nullptr), size_(0), ow
 block::block(const block &block) :
 code_(block.code_), name_(block.name_), size_(block.size_), owner_(block.owner_), occurrence_(block.occurrence_) {
 	memcpy(signature_, block.signature_, 256);
-	memcpy(owner_hash_, block.owner_hash_, 256);
+	memcpy(owner_hash_, block.owner_hash_, 32);
 
 	if (block.data_ != nullptr) {
 		data_ = new BYTE[size_];

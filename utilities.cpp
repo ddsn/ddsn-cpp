@@ -37,7 +37,7 @@ size_t ddsn::hex_to_bytes(const std::string &hex, BYTE *bytes, size_t size) {
 }
 
 std::string ddsn::bytes_to_hex(const BYTE *bytes, size_t size) {
-	std::string string;
+	std::string string = "";
 	for (UINT32 i = 0; i < size; i++) {
 		UINT32 digit = bytes[i] >> 4;
 		if (digit <= 9) {
