@@ -27,8 +27,7 @@ size_t ddsn::hex_to_bytes(const std::string &hex, BYTE *bytes, size_t size) {
 		}
 		if (hex[2 * i + 1] >= '0' && hex[2 * i + 1] <= '9') {
 			lo = hex[2 * i + 1] - '0';
-		}
-		else if (hex[2 * i + 1] >= 'a' && hex[2 * i + 1] <= 'f') {
+		} else if (hex[2 * i + 1] >= 'a' && hex[2 * i + 1] <= 'f') {
 			lo = hex[2 * i + 1] - 'a' + 10;
 		}
 		bytes[i] = (hi << 4) | lo;
@@ -48,8 +47,7 @@ std::string ddsn::bytes_to_hex(const BYTE *bytes, size_t size) {
 		digit = bytes[i] & 0xF;
 		if (digit <= 9) {
 			string += (char)('0' + digit);
-		}
-		else {
+		} else {
 			string += (char)('a' + digit - 10);
 		}
 	}

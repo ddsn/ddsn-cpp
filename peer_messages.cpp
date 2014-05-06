@@ -913,8 +913,7 @@ void peer_load_block::feed(const std::string &line, int &type, size_t &expected_
 		local_peer_.load(code_, boost::bind(&action_peer_load_block, boost::ref(local_peer_), connection_, _1, _2));
 
 		type = DDSN_MESSAGE_TYPE_END;
-	}
-	else {
+	} else {
 		size_t colon_pos = line.find(": ");
 		if (colon_pos == string::npos) {
 			type = DDSN_MESSAGE_TYPE_ERROR;
@@ -966,8 +965,7 @@ void peer_stored_block::feed(const std::string &line, int &type, size_t &expecte
 		local_peer_.do_store_actions(boost::ref(block_), success_);
 
 		type = DDSN_MESSAGE_TYPE_END;
-	}
-	else {
+	} else {
 		size_t colon_pos = line.find(": ");
 		if (colon_pos == string::npos) {
 			type = DDSN_MESSAGE_TYPE_ERROR;

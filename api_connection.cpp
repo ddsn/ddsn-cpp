@@ -82,8 +82,7 @@ void api_connection::send(const BYTE *bytes, size_t size) {
 			snd_buffer_start_ = 0;
 			snd_buffer_end_ = buffer_data;
 			//new_buffer_space = snd_buffer_size_ - buffer_data;
-		}
-		else {
+		} else {
 			// enlarge buffer space for expected bytes to next power of 2
 			snd_buffer_size_ = next_power(buffer_data + size);
 			BYTE *new_buffer = new BYTE[snd_buffer_size_];
@@ -128,8 +127,7 @@ void api_connection::handle_write(const boost::system::error_code& error, size_t
 				boost::asio::placeholders::error,
 				boost::asio::placeholders::bytes_transferred));
 		}
-	}
-	else {
+	} else {
 		cout << "An error occurred: no bytes transferred" << endl;
 		close();
 	}
@@ -172,21 +170,18 @@ void api_connection::handle_read(const boost::system::error_code& error, size_t 
 						if (message_ == nullptr) {
 							close();
 							return;
-						}
-						else {
+						} else {
 							cout << "API#" << id_ << " message: " << line << endl;
 
 							message_->first_action(read_type_, read_bytes_);
 						}
-					}
-					else {
+					} else {
 						message_->feed(line, read_type_, read_bytes_);
 					}
 
 					comsumed = true;
 				}
-			}
-			else {
+			} else {
 				if (read_bytes_ <= buffer_data) {
 					int tmp = read_bytes_;
 					message_->feed(rcv_buffer_ + rcv_buffer_start_, read_bytes_, read_type_, read_bytes_);
@@ -201,8 +196,7 @@ void api_connection::handle_read(const boost::system::error_code& error, size_t 
 					delete message_;
 					close();
 					return;
-				}
-				else if (read_type_ == DDSN_MESSAGE_TYPE_END) {
+				} else if (read_type_ == DDSN_MESSAGE_TYPE_END) {
 					delete message_;
 					message_ = nullptr;
 					read_type_ = DDSN_MESSAGE_TYPE_STRING;
@@ -243,16 +237,14 @@ void api_connection::handle_read(const boost::system::error_code& error, size_t 
 					close();
 					return;
 				}
-			}
-			else if (read_type_ == DDSN_MESSAGE_TYPE_STRING || bytes_to_read <= rcv_buffer_size_) {
+			} else if (read_type_ == DDSN_MESSAGE_TYPE_STRING || bytes_to_read <= rcv_buffer_size_) {
 				// shift to beginning to create space at the end (doesn't resize the buffer)
 				memmove(rcv_buffer_, rcv_buffer_ + rcv_buffer_start_, buffer_data);
 
 				rcv_buffer_start_ = 0;
 				rcv_buffer_end_ = buffer_data;
 				buffer_space = rcv_buffer_size_ - buffer_data;
-			}
-			else {
+			} else {
 				// enlarge buffer space for expected bytes to next power of 2
 				rcv_buffer_size_ = next_power(read_bytes_);
 				BYTE *new_buffer = new BYTE[rcv_buffer_size_];
@@ -269,8 +261,7 @@ void api_connection::handle_read(const boost::system::error_code& error, size_t 
 		socket_.async_read_some(boost::asio::buffer(rcv_buffer_ + rcv_buffer_end_, buffer_space), boost::bind(&api_connection::handle_read, shared_from_this(),
 			boost::asio::placeholders::error,
 			boost::asio::placeholders::bytes_transferred));
-	}
-	else {
+	} else {
 		cout << "An error occurred: no bytes transferred" << endl;
 		close();
 	}

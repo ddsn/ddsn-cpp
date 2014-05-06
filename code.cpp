@@ -98,8 +98,7 @@ void code::set_layer_code(UINT32 layer, UINT32 code) {
 	assert(layer < layers_);
 	if (code == 0) {
 		code_[layer / 8] &= 0xFF ^ (1 << (layer % 8));
-	}
-	else {
+	} else {
 		code_[layer / 8] |= 0x00 ^ (1 << (layer % 8));
 	}
 }
@@ -190,8 +189,7 @@ string code::string(char delim) const {
 		int digit = layer_code(i) << 3 | layer_code(i + 1) << 2 | layer_code(i + 2) << 1 | layer_code(i + 3);
 		if (digit <= 9) {
 			string += (char)('0' + digit);
-		}
-		else {
+		} else {
 			string += (char)('a' + digit - 10);
 		}
 	}
