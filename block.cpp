@@ -153,7 +153,7 @@ void block::seal() {
 	SHA256_CTX sha256;
 	SHA256_Init(&sha256);
 	SHA256_Update(&sha256, data_, size_);
-	SHA256_Update(&sha256, code_.bytes(), 32);
+	SHA256_Update(&sha256, name_.c_str(), name_.length());
 	SHA256_Final(data_hash, &sha256);
 
 	UINT32 siglen;
@@ -170,7 +170,7 @@ bool block::verify() {
 	SHA256_CTX sha256;
 	SHA256_Init(&sha256);
 	SHA256_Update(&sha256, data_, size_);
-	SHA256_Update(&sha256, code_.bytes(), 32);
+	SHA256_Update(&sha256, name_.c_str(), name_.length());
 	SHA256_Final(data_hash, &sha256);
 
 	if (RSA_verify(NID_sha256, data_hash, 32, signature_, 256, owner_) != 1) {
