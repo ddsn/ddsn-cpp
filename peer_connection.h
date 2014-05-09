@@ -32,7 +32,7 @@ public:
 	void set_got_welcome(bool got_welcome);
 
 	boost::asio::ip::tcp::socket& socket();
-	int id();
+	UINT32 id();
 	void start();
 
 	void close();
@@ -60,10 +60,10 @@ private:
 
 	peer_message *message_;
 
-	int read_type_;
+	UINT32 read_type_;
 	size_t read_bytes_;
 
-	int id_;
+	UINT32 id_;
 
 	bool introduced_;
 	bool got_welcome_;

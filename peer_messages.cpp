@@ -92,11 +92,11 @@ peer_hello::~peer_hello() {
 
 }
 
-void peer_hello::first_action(int &type, size_t &expected_size) {
+void peer_hello::first_action(UINT32 &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
-void peer_hello::feed(const std::string &line, int &type, size_t &expected_size) {
+void peer_hello::feed(const std::string &line, UINT32 &type, size_t &expected_size) {
 	if (state_ == 0) {
 		if (line == "") {
 			state_ = 1;
@@ -209,7 +209,7 @@ void peer_hello::feed(const std::string &line, int &type, size_t &expected_size)
 	}
 }
 
-void peer_hello::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
+void peer_hello::feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size) {
 
 }
 
@@ -259,11 +259,11 @@ peer_prove_identity::~peer_prove_identity() {
 
 }
 
-void peer_prove_identity::first_action(int &type, size_t &expected_size) {
+void peer_prove_identity::first_action(UINT32 &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
-void peer_prove_identity::feed(const std::string &line, int &type, size_t &expected_size) {
+void peer_prove_identity::feed(const std::string &line, UINT32 &type, size_t &expected_size) {
 	if (line == "") {
 		peer_verify_identity message(local_peer_, connection_, message_);
 		message.send();
@@ -276,7 +276,7 @@ void peer_prove_identity::feed(const std::string &line, int &type, size_t &expec
 	}
 }
 
-void peer_prove_identity::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
+void peer_prove_identity::feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size) {
 }
 
 void peer_prove_identity::send() {
@@ -306,15 +306,15 @@ peer_verify_identity::~peer_verify_identity() {
 
 }
 
-void peer_verify_identity::first_action(int &type, size_t &expected_size) {
+void peer_verify_identity::first_action(UINT32 &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_BYTES;
 	expected_size = 256;
 }
 
-void peer_verify_identity::feed(const std::string &line, int &type, size_t &expected_size) {
+void peer_verify_identity::feed(const std::string &line, UINT32 &type, size_t &expected_size) {
 }
 
-void peer_verify_identity::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
+void peer_verify_identity::feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size) {
 	string sign_message = "Sign this random number: " + boost::lexical_cast<std::string>(connection_->foreign_peer()->verification_number());
 	
 	BYTE message_hash[32];
@@ -380,7 +380,7 @@ peer_welcome::~peer_welcome() {
 
 }
 
-void peer_welcome::first_action(int &type, size_t &expected_size) {
+void peer_welcome::first_action(UINT32 &type, size_t &expected_size) {
 	connection_->set_got_welcome(true);
 
 	if (connection_->foreign_peer() && connection_->foreign_peer()->identity_verified()) {
@@ -390,11 +390,11 @@ void peer_welcome::first_action(int &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_END;
 }
 
-void peer_welcome::feed(const std::string &line, int &type, size_t &expected_size) {
+void peer_welcome::feed(const std::string &line, UINT32 &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_ERROR;
 }
 
-void peer_welcome::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
+void peer_welcome::feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_ERROR;
 }
 
@@ -418,11 +418,11 @@ peer_set_code::~peer_set_code() {
 
 }
 
-void peer_set_code::first_action(int &type, size_t &expected_size) {
+void peer_set_code::first_action(UINT32 &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
-void peer_set_code::feed(const std::string &line, int &type, size_t &expected_size) {
+void peer_set_code::feed(const std::string &line, UINT32 &type, size_t &expected_size) {
 	if (line == "") {
 		local_peer_.set_code(code_);
 		peer_get_code(local_peer_, connection_, code_).send();
@@ -460,7 +460,7 @@ void peer_set_code::feed(const std::string &line, int &type, size_t &expected_si
 	}
 }
 
-void peer_set_code::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
+void peer_set_code::feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size) {
 
 }
 
@@ -486,11 +486,11 @@ peer_get_code::~peer_get_code() {
 
 }
 
-void peer_get_code::first_action(int &type, size_t &expected_size) {
+void peer_get_code::first_action(UINT32 &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
-void peer_get_code::feed(const std::string &line, int &type, size_t &expected_size) {
+void peer_get_code::feed(const std::string &line, UINT32 &type, size_t &expected_size) {
 	if (line == "") {
 		// first, check if the code is correct
 
@@ -544,7 +544,7 @@ void peer_get_code::feed(const std::string &line, int &type, size_t &expected_si
 	}
 }
 
-void peer_get_code::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
+void peer_get_code::feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size) {
 
 }
 
@@ -570,11 +570,11 @@ peer_introduce::~peer_introduce() {
 
 }
 
-void peer_introduce::first_action(int &type, size_t &expected_size) {
+void peer_introduce::first_action(UINT32 &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
-void peer_introduce::feed(const std::string &line, int &type, size_t &expected_size) {
+void peer_introduce::feed(const std::string &line, UINT32 &type, size_t &expected_size) {
 	if (line == "") {
 		type = DDSN_MESSAGE_TYPE_BYTES;
 		expected_size = 32;
@@ -609,7 +609,7 @@ void peer_introduce::feed(const std::string &line, int &type, size_t &expected_s
 	}
 }
 
-void peer_introduce::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
+void peer_introduce::feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size) {
 	peer_id peer_id;
 	peer_id.set_id((BYTE *)data);
 
@@ -652,7 +652,7 @@ peer_message(local_peer, connection) {
 }
 
 peer_connect::peer_connect(local_peer &local_peer, peer_connection::pointer connection, int layer, code code) :
-peer_message(local_peer, connection) {
+peer_message(local_peer, connection), layer_(layer), code_(code) {
 
 }
 
@@ -660,11 +660,11 @@ peer_connect::~peer_connect() {
 
 }
 
-void peer_connect::first_action(int &type, size_t &expected_size) {
+void peer_connect::first_action(UINT32 &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
-void peer_connect::feed(const std::string &line, int &type, size_t &expected_size) {
+void peer_connect::feed(const std::string &line, UINT32 &type, size_t &expected_size) {
 	if (line == "") {
 		// TODO: Check code and layer
 		connection_->foreign_peer()->set_in_layer(layer_);
@@ -695,7 +695,7 @@ void peer_connect::feed(const std::string &line, int &type, size_t &expected_siz
 	}
 }
 
-void peer_connect::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
+void peer_connect::feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size) {
 
 }
 
@@ -717,7 +717,7 @@ peer_integrated::~peer_integrated() {
 
 }
 
-void peer_integrated::first_action(int &type, size_t &expected_size) {
+void peer_integrated::first_action(UINT32 &type, size_t &expected_size) {
 	connection_->foreign_peer()->set_integrated(true);
 
 	// hand block
@@ -726,11 +726,11 @@ void peer_integrated::first_action(int &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_END;
 }
 
-void peer_integrated::feed(const std::string &line, int &type, size_t &expected_size) {
+void peer_integrated::feed(const std::string &line, UINT32 &type, size_t &expected_size) {
 
 }
 
-void peer_integrated::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
+void peer_integrated::feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size) {
 
 }
 
@@ -754,11 +754,11 @@ peer_store_block::~peer_store_block() {
 
 }
 
-void peer_store_block::first_action(int &type, size_t &expected_size) {
+void peer_store_block::first_action(UINT32 &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
-void peer_store_block::feed(const std::string &line, int &type, size_t &expected_size) {
+void peer_store_block::feed(const std::string &line, UINT32 &type, size_t &expected_size) {
 	if (state_ == 0) {
 		if (line == "") {
 			type = DDSN_MESSAGE_TYPE_BYTES;
@@ -811,7 +811,7 @@ static void action_peer_store_block(local_peer &local_peer, peer_connection::poi
 	peer_stored_block(local_peer, connection, block, success).send();
 }
 
-void peer_store_block::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
+void peer_store_block::feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size) {
 	if (state_ == 0) {
 		// got signature
 
@@ -904,7 +904,7 @@ peer_load_block::~peer_load_block() {
 
 }
 
-void peer_load_block::first_action(int &type, size_t &expected_size) {
+void peer_load_block::first_action(UINT32 &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
@@ -912,7 +912,7 @@ void action_peer_load_block(local_peer &local_peer, peer_connection::pointer con
 	peer_deliver_block(local_peer, connection, block, success).send();
 }
 
-void peer_load_block::feed(const std::string &line, int &type, size_t &expected_size) {
+void peer_load_block::feed(const std::string &line, UINT32 &type, size_t &expected_size) {
 	if (line == "") {
 		local_peer_.load(code_, boost::bind(&action_peer_load_block, boost::ref(local_peer_), connection_, _1, _2));
 
@@ -934,7 +934,7 @@ void peer_load_block::feed(const std::string &line, int &type, size_t &expected_
 	}
 }
 
-void peer_load_block::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
+void peer_load_block::feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size) {
 
 }
 
@@ -960,11 +960,11 @@ peer_stored_block::~peer_stored_block() {
 
 }
 
-void peer_stored_block::first_action(int &type, size_t &expected_size) {
+void peer_stored_block::first_action(UINT32 &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
-void peer_stored_block::feed(const std::string &line, int &type, size_t &expected_size) {
+void peer_stored_block::feed(const std::string &line, UINT32 &type, size_t &expected_size) {
 	if (line == "") {
 		local_peer_.do_store_actions(boost::ref(block_), success_);
 
@@ -1001,7 +1001,7 @@ void peer_stored_block::feed(const std::string &line, int &type, size_t &expecte
 	}
 }
 
-void peer_stored_block::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
+void peer_stored_block::feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size) {
 
 }
 
@@ -1031,11 +1031,11 @@ peer_deliver_block::~peer_deliver_block() {
 
 }
 
-void peer_deliver_block::first_action(int &type, size_t &expected_size) {
+void peer_deliver_block::first_action(UINT32 &type, size_t &expected_size) {
 	type = DDSN_MESSAGE_TYPE_STRING;
 }
 
-void peer_deliver_block::feed(const std::string &line, int &type, size_t &expected_size) {
+void peer_deliver_block::feed(const std::string &line, UINT32 &type, size_t &expected_size) {
 	if (state_ == 0) {
 		if (line == "") {
 			if (!success_) {
@@ -1092,7 +1092,7 @@ void peer_deliver_block::feed(const std::string &line, int &type, size_t &expect
 	}
 }
 
-void peer_deliver_block::feed(const BYTE *data, size_t size, int &type, size_t &expected_size) {
+void peer_deliver_block::feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size) {
 	if (state_ == 0) {
 		// got signature
 

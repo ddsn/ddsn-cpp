@@ -60,7 +60,7 @@ tcp::socket &peer_connection::socket() {
 	return socket_;
 }
 
-int peer_connection::id() {
+UINT32 peer_connection::id() {
 	return id_;
 }
 

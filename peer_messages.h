@@ -20,13 +20,13 @@ public:
 	virtual ~peer_message();
 
 	// called immediately after receiving the first line
-	virtual void first_action(int &type, size_t &expected_size) = 0;
+	virtual void first_action(UINT32 &type, size_t &expected_size) = 0;
 
 	// provides this message with a string
-	virtual void feed(const std::string &line, int &type, size_t &expected_size) = 0;
+	virtual void feed(const std::string &line, UINT32 &type, size_t &expected_size) = 0;
 
 	// provides this message with a byte array
-	virtual void feed(const BYTE *data, size_t size, int &type, size_t &expected_size) = 0;
+	virtual void feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size) = 0;
 
 	virtual void send() = 0;
 protected:
@@ -43,13 +43,13 @@ public:
 	peer_hello(local_peer &local_peer, peer_connection::pointer connection, std::string type);
 	~peer_hello();
 
-	void first_action(int &type, size_t &expected_size);
-	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
+	void first_action(UINT32 &type, size_t &expected_size);
+	void feed(const std::string &line, UINT32 &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size);
 
 	void send();
 private:
-	int state_;
+	UINT32 state_;
 	std::string public_key_;
 	std::string type_;
 };
@@ -59,9 +59,9 @@ public:
 	peer_prove_identity(local_peer &local_peer, peer_connection::pointer connection);
 	~peer_prove_identity();
 
-	void first_action(int &type, size_t &expected_size);
-	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
+	void first_action(UINT32 &type, size_t &expected_size);
+	void feed(const std::string &line, UINT32 &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size);
 
 	void send();
 private:
@@ -74,9 +74,9 @@ public:
 	peer_verify_identity(local_peer &local_peer, peer_connection::pointer connection, const std::string &message);
 	~peer_verify_identity();
 
-	void first_action(int &type, size_t &expected_size);
-	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
+	void first_action(UINT32 &type, size_t &expected_size);
+	void feed(const std::string &line, UINT32 &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size);
 
 	void send();
 private:
@@ -88,9 +88,9 @@ public:
 	peer_welcome(local_peer &local_peer, peer_connection::pointer connection);
 	~peer_welcome();
 
-	void first_action(int &type, size_t &expected_size);
-	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
+	void first_action(UINT32 &type, size_t &expected_size);
+	void feed(const std::string &line, UINT32 &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size);
 
 	void send();
 };
@@ -101,9 +101,9 @@ public:
 	peer_set_code(local_peer &local_peer, peer_connection::pointer connection, code code);
 	~peer_set_code();
 
-	void first_action(int &type, size_t &expected_size);
-	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
+	void first_action(UINT32 &type, size_t &expected_size);
+	void feed(const std::string &line, UINT32 &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size);
 
 	void send();
 private:
@@ -116,9 +116,9 @@ public:
 	peer_get_code(local_peer &local_peer, peer_connection::pointer connection, code code);
 	~peer_get_code();
 
-	void first_action(int &type, size_t &expected_size);
-	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
+	void first_action(UINT32 &type, size_t &expected_size);
+	void feed(const std::string &line, UINT32 &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size);
 
 	void send();
 private:
@@ -128,35 +128,35 @@ private:
 class peer_introduce : public peer_message {
 public:
 	peer_introduce(local_peer &local_peer, peer_connection::pointer connection);
-	peer_introduce(local_peer &local_peer, peer_connection::pointer connection, peer_id peer_id, std::string host, int port, int layer);
+	peer_introduce(local_peer &local_peer, peer_connection::pointer connection, peer_id peer_id, std::string host, INT32 port, INT32 layer);
 	~peer_introduce();
 
-	void first_action(int &type, size_t &expected_size);
-	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
+	void first_action(UINT32 &type, size_t &expected_size);
+	void feed(const std::string &line, UINT32 &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size);
 
 	void send();
 private:
-	int state_;
+	UINT32 state_;
 	peer_id peer_id_;
 	std::string host_;
-	int port_;
-	int layer_;
+	INT32 port_;
+	INT32 layer_;
 };
 
 class peer_connect : public peer_message {
 public:
 	peer_connect(local_peer &local_peer, peer_connection::pointer connection);
-	peer_connect(local_peer &local_peer, peer_connection::pointer connection, int layer, code code);
+	peer_connect(local_peer &local_peer, peer_connection::pointer connection, INT32 layer, code code);
 	~peer_connect();
 
-	void first_action(int &type, size_t &expected_size);
-	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
+	void first_action(UINT32 &type, size_t &expected_size);
+	void feed(const std::string &line, UINT32 &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size);
 
 	void send();
 private:
-	int layer_;
+	INT32 layer_;
 	code code_;
 };
 
@@ -165,9 +165,9 @@ public:
 	peer_integrated(local_peer &local_peer, peer_connection::pointer connection);
 	~peer_integrated();
 
-	void first_action(int &type, size_t &expected_size);
-	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
+	void first_action(UINT32 &type, size_t &expected_size);
+	void feed(const std::string &line, UINT32 &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size);
 
 	void send();
 };
@@ -178,9 +178,9 @@ public:
 	peer_store_block(local_peer &local_peer, peer_connection::pointer connection, const block &block);
 	~peer_store_block();
 
-	void first_action(int &type, size_t &expected_size);
-	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
+	void first_action(UINT32 &type, size_t &expected_size);
+	void feed(const std::string &line, UINT32 &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size);
 
 	void send();
 private:
@@ -196,9 +196,9 @@ public:
 	peer_load_block(local_peer &local_peer, peer_connection::pointer connection, const code &code);
 	~peer_load_block();
 
-	void first_action(int &type, size_t &expected_size);
-	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
+	void first_action(UINT32 &type, size_t &expected_size);
+	void feed(const std::string &line, UINT32 &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size);
 
 	void send();
 private:
@@ -211,9 +211,9 @@ public:
 	peer_stored_block(local_peer &local_peer, peer_connection::pointer connection, const block &block, bool success);
 	~peer_stored_block();
 
-	void first_action(int &type, size_t &expected_size);
-	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
+	void first_action(UINT32 &type, size_t &expected_size);
+	void feed(const std::string &line, UINT32 &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size);
 
 	void send();
 private:
@@ -227,9 +227,9 @@ public:
 	peer_deliver_block(local_peer &local_peer, peer_connection::pointer connection, const block &block, bool success);
 	~peer_deliver_block();
 
-	void first_action(int &type, size_t &expected_size);
-	void feed(const std::string &line, int &type, size_t &expected_size);
-	void feed(const BYTE *data, size_t size, int &type, size_t &expected_size);
+	void first_action(UINT32 &type, size_t &expected_size);
+	void feed(const std::string &line, UINT32 &type, size_t &expected_size);
+	void feed(const BYTE *data, size_t size, UINT32 &type, size_t &expected_size);
 
 	void send();
 private:
