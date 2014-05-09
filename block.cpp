@@ -23,6 +23,26 @@ block ddsn::block::copy_without_data(const block &block) {
 	return block_cp;
 }
 
+code ddsn::block::compute_code(const std::string name, BYTE owner_hash[32], UINT32 occurrence) {
+	SHA256_CTX sha256;
+
+	SHA256_Init(&sha256);
+	SHA256_Update(&sha256, name.c_str(), name.length());
+	SHA256_Update(&sha256, owner_hash, 32);
+	SHA256_Update(&sha256, &occurrence, 4);
+
+	BYTE code_bytes[32];
+	SHA256_Final(code_bytes, &sha256);
+
+	return ddsn::code(256, code_bytes);
+}
+
+code ddsn::block::compute_code(const std::string name, RSA *owner, UINT32 occurrence) {
+	BYTE owner_hash[32];
+	hash_from_rsa(owner, owner_hash);
+	return compute_code(name, owner_hash, occurrence);
+}
+
 block::block() : data_(nullptr), size_(0), owner_(nullptr), occurrence_(0) {
 }
 
@@ -124,66 +144,36 @@ void block::set_occurrence(UINT32 occurrence) {
 }
 
 void block::seal() {
-	SHA256_CTX sha256;
+	code_ = compute_code(name_, owner_, occurrence_);
 
 	// signature
 
 	BYTE data_hash[32];
 
+	SHA256_CTX sha256;
 	SHA256_Init(&sha256);
 	SHA256_Update(&sha256, data_, size_);
+	SHA256_Update(&sha256, code_.bytes(), 32);
 	SHA256_Final(data_hash, &sha256);
 
 	UINT32 siglen;
 	RSA_sign(NID_sha256, data_hash, 32, signature_, &siglen, owner_);
-
-	// code
-
-	BYTE name_hash[32];
-	hash_from_rsa(owner_, name_hash);
-
-	SHA256_Init(&sha256);
-	SHA256_Update(&sha256, name_.c_str(), name_.length());
-	SHA256_Update(&sha256, name_hash, 32);
-	SHA256_Update(&sha256, &occurrence_, 4);
-
-	BYTE code_bytes[32];
-	SHA256_Final(code_bytes, &sha256);
-
-	code_ = ddsn::code(256, code_bytes);
 }
 
 bool block::verify() {
-	SHA256_CTX sha256;
+	code_ = compute_code(name_, owner_, occurrence_);
 
 	// signature
-	
+
 	BYTE data_hash[32];
 
+	SHA256_CTX sha256;
 	SHA256_Init(&sha256);
 	SHA256_Update(&sha256, data_, size_);
+	SHA256_Update(&sha256, code_.bytes(), 32);
 	SHA256_Final(data_hash, &sha256);
 
 	if (RSA_verify(NID_sha256, data_hash, 32, signature_, 256, owner_) != 1) {
-		return false;
-	}
-
-	// code
-
-	BYTE name_hash[32];
-	hash_from_rsa(owner_, name_hash);
-
-	SHA256_Init(&sha256);
-	SHA256_Update(&sha256, name_.c_str(), name_.length());
-	SHA256_Update(&sha256, name_hash, 32);
-	SHA256_Update(&sha256, &occurrence_, 4);
-
-	BYTE code_bytes[32];
-	SHA256_Final(code_bytes, &sha256);
-
-	ddsn::code code(256, code_bytes);
-
-	if (code != code_) {
 		return false;
 	}
 

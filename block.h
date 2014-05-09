@@ -13,6 +13,9 @@ class block {
 public:
 	static block copy_without_data(const block &block);
 
+	static code compute_code(const std::string name, BYTE owner_hash[32], UINT32 occurrence);
+	static code compute_code(const std::string name, RSA *owner, UINT32 occurrence);
+
 	block();
 	block(const std::string &name);
 	block(const code &code);
