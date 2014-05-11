@@ -3,6 +3,7 @@
 #include "peer_server.h"
 
 #include <boost/asio.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <iostream>
 
@@ -23,6 +24,7 @@ int main(int argc, char *argv[]) {
 		("api-password", po::value<string>()->default_value(""), "set api password")
 		("integrated", "start as peer of a new network")
 		("capacity", po::value<int>()->default_value(5), "maximum number of blocks to store")
+		("new-identity", "don't load keys but generate a new identity")
 		;
 
 	po::variables_map vm;
@@ -37,6 +39,18 @@ int main(int argc, char *argv[]) {
 	if (vm.count("version")) {
 		cout << "DDSN version " << version << " built on " << __DATE__ << " at " << __TIME__ << "\n";
 		return 1;
+	}
+
+	// create directories
+
+	if (!boost::filesystem::exists("keys/")) {
+		cout << "Create keys directory" << endl;
+		boost::filesystem::create_directory("keys");
+	}
+
+	if (!boost::filesystem::exists("blocks/")) {
+		cout << "Create blocks directory" << endl;
+		boost::filesystem::create_directory("blocks");
 	}
 
 	boost::asio::io_service io_service;
@@ -55,7 +69,7 @@ int main(int argc, char *argv[]) {
 		my_peer.set_integrated(true);
 	}
 
-	if (my_peer.load_key() != 0) {
+	if (my_peer.load_key() != 0 || vm.count("new-identity")) {
 		cout << "Generate peer key" << endl;
 		my_peer.generate_key();
 		my_peer.save_key();
